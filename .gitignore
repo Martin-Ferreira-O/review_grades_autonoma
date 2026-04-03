@@ -1,0 +1,6 @@
+.env
+.auth/
+__pycache__/
+*.pyc
+notas_*.json
+error_final.png
