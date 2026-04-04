@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard UA</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/styles.css') }}?v={{ static_version }}" />
+  </head>
+  <body>
+    <main class="page">
+      <section class="hero">
+        <div>
+          <p class="eyebrow">UA Grades</p>
+          <h1>Dashboard local de rendimiento academico</h1>
+          <p class="hero-copy">
+            Historial consolidado desde Banner con SQLite local para consulta rapida y una vista
+            pensada para detectar fortalezas, alertas y evolucion por semestre.
+          </p>
+        </div>
+        <div class="hero-meta">
+          <div class="meta-card">
+            <span class="meta-label">SQLite</span>
+            <code>{{ sqlite_path }}</code>
+          </div>
+          {% if has_history %}
+          <div class="meta-card">
+            <span class="meta-label">Ultima carga</span>
+            <strong title="{{ generated_at_exact }}">{{ generated_at_relative }}</strong>
+            <small class="meta-detail">{{ generated_at_exact }}</small>
+          </div>
+          <div class="meta-card">
+            <span class="meta-label">Ultimo periodo</span>
+            <strong>{{ latest_term_label }}</strong>
+          </div>
+          {% endif %}
+        </div>
+      </section>
+
+      {% if not has_history %}
+      <section class="empty-state">
+        <h2>No hay historial cargado aun</h2>
+        <p>
+          Ejecuta <code>python main.py fetch</code> o <code>docker compose run --rm app python main.py fetch</code>
+          para llenar SQLite y luego recarga esta pagina.
+        </p>
+      </section>
+      {% else %}
+      <section class="cards-grid">
+        <article class="card metric-card">
+          <span class="metric-label">Promedio global</span>
+          <strong>{{ cards.overall_average }}</strong>
+        </article>
+        <article class="card metric-card">
+          <span class="metric-label">Periodos</span>
+          <strong>{{ cards.terms }}</strong>
+        </article>
+        <article class="card metric-card">
+          <span class="metric-label">Cursos totales</span>
+          <strong>{{ cards.courses }}</strong>
+        </article>
+        <article class="card metric-card">
+          <span class="metric-label">Cursos con nota</span>
+          <strong>{{ cards.graded_courses }}</strong>
+        </article>
+        <article class="card metric-card success">
+          <span class="metric-label">Aprobados</span>
+          <strong>{{ cards.passed_courses }}</strong>
+        </article>
+        <article class="card metric-card danger">
+          <span class="metric-label">Bajo 4.0</span>
+          <strong>{{ cards.failed_courses }}</strong>
+        </article>
+      </section>
+
+      <section class="charts-grid">
+        <article class="card chart-card">
+          <div class="card-header">
+            <h2>Evolucion del promedio</h2>
+            <p>Vista por periodo y nivel.</p>
+          </div>
+          <canvas id="termTrendChart" height="220"></canvas>
+        </article>
+        <article class="card chart-card">
+          <div class="card-header">
+            <h2>Mejores resultados</h2>
+            <p>Top 5 cursos con mayor nota.</p>
+          </div>
+          <canvas id="bestCoursesChart" height="220"></canvas>
+        </article>
+        <article class="card chart-card">
+          <div class="card-header">
+            <h2>Alertas academicas</h2>
+            <p>Cursos con menor nota numerica.</p>
+          </div>
+          <canvas id="worstCoursesChart" height="220"></canvas>
+        </article>
+      </section>
+
+      <section class="card section-card">
+        <div class="card-header">
+          <h2>Resumen por periodo</h2>
+          <p>Promedio, volumen y distribucion basica.</p>
+        </div>
+        <div class="term-grid">
+          {% for term in term_summaries %}
+          <article class="term-panel">
+            <div>
+              <h3>{{ term.label }}</h3>
+              <p>{{ term.courses_count }} cursos | {{ term.graded_courses_count }} con nota numerica</p>
+            </div>
+            <div class="term-stats">
+              <span>Promedio <strong>{{ term.average_text }}</strong></span>
+              <span>Aprobados <strong>{{ term.passed_count }}</strong></span>
+              <span>Bajo 4.0 <strong>{{ term.failed_count }}</strong></span>
+              {% if term.pending_count %}
+              <span>Sin nota <strong>{{ term.pending_count }}</strong></span>
+              {% endif %}
+            </div>
+          </article>
+          {% endfor %}
+        </div>
+      </section>
+
+      <section class="card section-card">
+        <div class="card-header">
+          <h2>Detalle de cursos</h2>
+          <p>Tabla consolidada del historial cargado.</p>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Periodo</th>
+                <th>Codigo</th>
+                <th>Asignatura</th>
+                <th>Nota</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for course in courses %}
+              <tr>
+                <td>{{ course.term_label }}</td>
+                <td>{{ course.code }}</td>
+                <td>{{ course.title }}</td>
+                <td>{{ course.grade_text }}</td>
+                <td>
+                  <span class="status-pill {{ course.status_variant }}">
+                    {{ course.status }}
+                  </span>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      {% endif %}
+    </main>
+
+    {% if has_history %}
+    <script>
+      window.dashboardData = {
+        termLabels: {{ chart_data.term_labels_json | safe }},
+        termAverages: {{ chart_data.term_averages_json | safe }},
+        bestLabels: {{ chart_data.best_labels_json | safe }},
+        bestValues: {{ chart_data.best_values_json | safe }},
+        worstLabels: {{ chart_data.worst_labels_json | safe }},
+        worstValues: {{ chart_data.worst_values_json | safe }},
+      };
+    </script>
+    <script src="{{ url_for('static', path='/charts.js') }}?v={{ static_version }}"></script>
+    {% endif %}
+  </body>
+</html>

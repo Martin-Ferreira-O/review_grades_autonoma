@@ -3,4 +3,9 @@
 __pycache__/
 *.pyc
 notas_*.json
+historial_notas_*.json
 error_final.png
+debug_*.png
+debug_*.html
+data/
+*.sqlite3

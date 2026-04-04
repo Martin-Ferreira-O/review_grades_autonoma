@@ -66,7 +66,7 @@ class MicrosoftAuthenticator:
             return False
 
     async def _login(self, page: Page) -> None:
-        print("🌐 Iniciando flujo SSO de la UAC...")
+        print("🌐 Iniciando flujo SSO de la UA...")
         await page.goto(self._settings.urls.sso, wait_until="networkidle", timeout=30000)
         print(f"  → URL actual: {page.url}")
 

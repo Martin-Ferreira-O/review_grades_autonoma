@@ -1,0 +1,16 @@
+services:
+  app:
+    build:
+      context: .
+    env_file:
+      - .env
+    environment:
+      UA_OUTPUT_DIR: /app/data
+      UA_SQLITE_PATH: /app/data/ua_grades.sqlite3
+      UA_WEB_HOST: 0.0.0.0
+      UA_WEB_PORT: 8000
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./.auth:/app/.auth
+      - ./data:/app/data

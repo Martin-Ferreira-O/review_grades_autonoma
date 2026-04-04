@@ -1,3 +1,3 @@
-from .console_presenter import ConsoleSnapshotPresenter
+from .console_presenter import ConsoleHistoryPresenter, ConsoleSnapshotPresenter
 
-__all__ = ["ConsoleSnapshotPresenter"]
+__all__ = ["ConsoleHistoryPresenter", "ConsoleSnapshotPresenter"]

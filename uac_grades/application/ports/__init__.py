@@ -1,4 +1,4 @@
 from .auth import AuthPort
-from .grades import GradeSnapshotPort
+from .grades import AcademicHistoryPort, GradeSnapshotPort
 
-__all__ = ["AuthPort", "GradeSnapshotPort"]
+__all__ = ["AcademicHistoryPort", "AuthPort", "GradeSnapshotPort"]

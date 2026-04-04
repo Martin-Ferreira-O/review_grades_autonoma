@@ -1,11 +1,19 @@
 from __future__ import annotations
 
-from uac_grades.domain.models import GradeSnapshot
+from uac_grades.domain.models import AcademicHistory, GradeSnapshot
 from uac_grades.infrastructure.browser.playwright_context import PlaywrightBrowserSession
 from uac_grades.infrastructure.config.settings import Settings
 from uac_grades.infrastructure.persistence.debug_store import DebugArtifactStore
 
-from .mappers import build_course_label, build_snapshot, course_has_component_details, pick_target_option, banner_flag_to_bool
+from .mappers import (
+    banner_flag_to_bool,
+    build_academic_history,
+    build_course_label,
+    build_snapshot,
+    course_has_component_details,
+    list_valid_options,
+    pick_target_option,
+)
 
 
 class BannerGateway:
@@ -15,6 +23,44 @@ class BannerGateway:
         self._debug_store = debug_store
 
     async def fetch_grade_snapshot(self) -> GradeSnapshot:
+        await self._open_grades_page()
+        term_raw, level_raw = await self._fetch_term_and_level()
+        print("\n  → Semestre seleccionado automáticamente:")
+        print(f"     Periodo: {term_raw['code']} | {term_raw['description']}")
+        print(f"     Nivel:   {level_raw['code']} | {level_raw['description']}")
+
+        courses_raw = await self._fetch_courses(term_raw["code"], level_raw["code"])
+        courses_raw = await self._enrich_courses_with_components(courses_raw)
+
+        await self._save_final_debug_artifacts()
+
+        return build_snapshot(term_raw, level_raw, courses_raw)
+
+    async def fetch_academic_history(self) -> AcademicHistory:
+        await self._open_grades_page()
+        terms = await self._fetch_terms()
+        snapshots: list[GradeSnapshot] = []
+
+        for term_index, term in enumerate(terms, 1):
+            print(f"\n📚 Periodo [{term_index}/{len(terms)}] {term['code']} | {term['description']}")
+            levels = await self._fetch_levels(term["code"])
+
+            for level in levels:
+                print(f"  → Nivel {level['code']} | {level['description']}")
+                courses_raw = await self._fetch_courses(term["code"], level["code"])
+
+                if not courses_raw:
+                    print("    · Sin cursos para este nivel")
+                    continue
+
+                courses_raw = await self._enrich_courses_with_components(courses_raw)
+                snapshots.append(build_snapshot(term, level, courses_raw))
+
+        await self._save_final_debug_artifacts()
+
+        return build_academic_history(snapshots)
+
+    async def _open_grades_page(self) -> None:
         page = self._browser.page
 
         print("📋 Navegando a calificaciones...")
@@ -25,18 +71,10 @@ class BannerGateway:
         await self._debug_store.save_page_state(page, "debug_notas.png", "debug_notas_inicial.html")
         print("  💾 debug_notas.png y debug_notas_inicial.html guardados")
 
-        term_raw, level_raw = await self._fetch_term_and_level()
-        print("\n  → Semestre seleccionado automáticamente:")
-        print(f"     Periodo: {term_raw['code']} | {term_raw['description']}")
-        print(f"     Nivel:   {level_raw['code']} | {level_raw['description']}")
-
-        courses_raw = await self._fetch_courses(term_raw["code"], level_raw["code"])
-        courses_raw = await self._enrich_courses_with_components(courses_raw)
-
+    async def _save_final_debug_artifacts(self) -> None:
+        page = self._browser.page
         await self._debug_store.save_page_state(page, "debug_notas_final.png", "debug_notas_final.html")
         print("  💾 debug_notas_final.png y debug_notas_final.html guardados")
-
-        return build_snapshot(term_raw, level_raw, courses_raw)
 
     async def _get_endpoint(self, selector: str, description: str) -> str:
         page = self._browser.page
@@ -81,10 +119,7 @@ class BannerGateway:
         )
 
     async def _fetch_term_and_level(self) -> tuple[dict, dict]:
-        term_endpoint = await self._get_endpoint("#term", "periodos")
-        level_endpoint = await self._get_endpoint("#level", "niveles")
-
-        terms = await self._fetch_json(term_endpoint, {"filter": "", "page": 1, "max": 50})
+        terms = await self._fetch_terms()
         term = pick_target_option(
             terms,
             "periodo",
@@ -92,10 +127,7 @@ class BannerGateway:
             target_description=self._settings.target.term_description,
         )
 
-        levels = await self._fetch_json(
-            level_endpoint,
-            {"filter": "", "term": term["code"], "page": 1, "max": 20},
-        )
+        levels = await self._fetch_levels(term["code"])
         level = pick_target_option(
             levels,
             "nivel",
@@ -105,6 +137,19 @@ class BannerGateway:
         )
 
         return term, level
+
+    async def _fetch_terms(self) -> list[dict]:
+        term_endpoint = await self._get_endpoint("#term", "periodos")
+        terms = await self._fetch_json(term_endpoint, {"filter": "", "page": 1, "max": 200})
+        return list_valid_options(terms)
+
+    async def _fetch_levels(self, term_code: str) -> list[dict]:
+        level_endpoint = await self._get_endpoint("#level", "niveles")
+        levels = await self._fetch_json(
+            level_endpoint,
+            {"filter": "", "term": term_code, "page": 1, "max": 50},
+        )
+        return list_valid_options(levels)
 
     async def _fetch_courses(self, term_code: str, level_code: str) -> list:
         page = self._browser.page

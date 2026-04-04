@@ -1,1 +1,1 @@
-"""Core package for the UAC grades application."""
+"""Core package for the UA grades application."""

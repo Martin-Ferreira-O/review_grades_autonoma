@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
+from datetime import datetime, timezone
+from typing import Any, Optional
 
 
 @dataclass(frozen=True)
@@ -16,11 +17,25 @@ class AcademicTerm:
     code: str
     description: str
 
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> "AcademicTerm":
+        return cls(
+            code=str(payload.get("code") or payload.get("term_code") or "").strip(),
+            description=str(payload.get("description") or payload.get("term_description") or "").strip(),
+        )
+
 
 @dataclass(frozen=True)
 class AcademicLevel:
     code: str
     description: str
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> "AcademicLevel":
+        return cls(
+            code=str(payload.get("code") or payload.get("level_code") or "").strip(),
+            description=str(payload.get("description") or payload.get("level_description") or "").strip(),
+        )
 
 
 @dataclass(frozen=True)
@@ -59,6 +74,37 @@ class GradeComponent:
             "tiene_subcomponentes": self.has_subcomponents,
             "subcomponentes": [subcomponent.to_dict() for subcomponent in self.subcomponents],
         }
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> "GradeComponent":
+        return cls(
+            component_id=payload.get("component_id"),
+            name=str(payload.get("nombre") or payload.get("name") or "").strip(),
+            code=payload.get("codigo") or payload.get("code"),
+            description=payload.get("descripcion") or payload.get("description"),
+            weight=payload.get("peso") or payload.get("weight"),
+            score=payload.get("puntaje") or payload.get("score"),
+            total_score=payload.get("puntaje_total") or payload.get("total_score"),
+            score_text=payload.get("puntaje_texto") or payload.get("score_text"),
+            grade=payload.get("calificacion") or payload.get("grade"),
+            percentage=payload.get("porcentaje") or payload.get("percentage"),
+            must_pass=bool(payload.get("debe_aprobar") if "debe_aprobar" in payload else payload.get("must_pass")),
+            stage=payload.get("etapa") or payload.get("stage"),
+            is_main_component=bool(
+                payload.get("es_componente_principal")
+                if "es_componente_principal" in payload
+                else payload.get("is_main_component")
+            ),
+            has_subcomponents=bool(
+                payload.get("tiene_subcomponentes")
+                if "tiene_subcomponentes" in payload
+                else payload.get("has_subcomponents")
+            ),
+            subcomponents=[
+                cls.from_dict(subcomponent)
+                for subcomponent in payload.get("subcomponentes") or payload.get("subcomponents") or []
+            ],
+        )
 
 
 @dataclass(frozen=True)
@@ -104,12 +150,46 @@ class Course:
             "componentes": [component.to_dict() for component in self.components],
         }
 
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> "Course":
+        return cls(
+            course_id=payload.get("id") or payload.get("course_id"),
+            nrc=payload.get("nrc"),
+            code=str(payload.get("codigo") or payload.get("code") or "").strip(),
+            section=payload.get("seccion") or payload.get("section"),
+            title=str(payload.get("asignatura") or payload.get("title") or "").strip(),
+            grade=payload.get("nota") or payload.get("grade"),
+            final_grade=payload.get("nota_final") or payload.get("final_grade"),
+            midterm_grade=payload.get("nota_parcial") or payload.get("midterm_grade"),
+            term_description=payload.get("periodo") or payload.get("term_description"),
+            level_description=payload.get("nivel") or payload.get("level_description"),
+            campus=payload.get("campus"),
+            study_path=payload.get("plan_estudios") or payload.get("study_path"),
+            attempted_hours=payload.get("horas_intentadas") or payload.get("attempted_hours"),
+            earned_hours=payload.get("horas_ganadas") or payload.get("earned_hours"),
+            gpa_hours=payload.get("horas_gpa") or payload.get("gpa_hours"),
+            quality_points=payload.get("puntos_calidad") or payload.get("quality_points"),
+            components_available=bool(
+                payload.get("componentes_disponibles")
+                if "componentes_disponibles" in payload
+                else payload.get("components_available")
+            ),
+            components=[
+                GradeComponent.from_dict(component)
+                for component in payload.get("componentes") or payload.get("components") or []
+            ],
+        )
+
 
 @dataclass(frozen=True)
 class GradeSnapshot:
     term: AcademicTerm
     level: AcademicLevel
     courses: list[Course]
+
+    @property
+    def label(self) -> str:
+        return f"{self.term.description} | {self.level.description}"
 
     def to_dict(self) -> dict:
         return {
@@ -120,3 +200,36 @@ class GradeSnapshot:
             "courses_count": len(self.courses),
             "courses": [course.to_dict() for course in self.courses],
         }
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> "GradeSnapshot":
+        return cls(
+            term=AcademicTerm.from_dict(payload),
+            level=AcademicLevel.from_dict(payload),
+            courses=[Course.from_dict(course) for course in payload.get("courses") or []],
+        )
+
+
+@dataclass(frozen=True)
+class AcademicHistory:
+    snapshots: list[GradeSnapshot]
+    generated_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+    @property
+    def courses_count(self) -> int:
+        return sum(len(snapshot.courses) for snapshot in self.snapshots)
+
+    def to_dict(self) -> dict:
+        return {
+            "generated_at": self.generated_at,
+            "snapshots_count": len(self.snapshots),
+            "courses_count": self.courses_count,
+            "snapshots": [snapshot.to_dict() for snapshot in self.snapshots],
+        }
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> "AcademicHistory":
+        return cls(
+            generated_at=str(payload.get("generated_at") or datetime.now(timezone.utc).isoformat()),
+            snapshots=[GradeSnapshot.from_dict(snapshot) for snapshot in payload.get("snapshots") or []],
+        )

@@ -1,1 +1,3 @@
-"""Future HTTP/API adapters will live here."""
+from .app import create_app
+
+__all__ = ["create_app"]
