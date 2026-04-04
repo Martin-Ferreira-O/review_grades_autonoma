@@ -1,19 +1,80 @@
 # UA Grades
 
 <p align="center">
+  <strong>Historial academico desde Banner + SQLite + dashboard local</strong>
+</p>
+
+<p align="center">
+  Herramienta personal para extraer tus notas desde Banner, consolidarlas en SQLite y visualizarlas en una web local con metricas, promedios y alertas por semestre.
+</p>
+
+<p align="center">
   <img src="./image.png" alt="Dashboard UA" width="100%" />
 </p>
 
-Herramienta personal para extraer el historial academico desde Banner, persistirlo en SQLite y visualizarlo en un dashboard web local.
+## Resumen
 
-## Modos disponibles
+`UA Grades` automatiza el acceso a Banner, recorre todos los periodos disponibles para tu cuenta y construye un historial academico local.
 
-- `python main.py fetch`: inicia sesion, recorre todos los periodos disponibles y guarda JSON + SQLite.
-- `python main.py serve`: levanta el dashboard local en `http://127.0.0.1:8000`.
+Con ese historial puedes:
+
+- guardar un respaldo en JSON
+- persistir la informacion en SQLite
+- levantar un dashboard web local
+- ver promedios por semestre
+- detectar cursos fuertes, cursos mas debiles y periodos sin nota
+
+## Caracteristicas
+
+- Extraccion automatizada con `Playwright`
+- Login con Microsoft + `TOTP`
+- Historial consolidado de todos los semestres disponibles
+- Persistencia local en `SQLite`
+- Exportacion a `JSON`
+- Dashboard local con metricas y graficos
+- Soporte para ejecucion local o con `Docker`
+
+## Flujo
+
+1. `fetch`: inicia sesion y extrae el historial academico desde Banner.
+2. Guarda el resultado en `JSON` y `SQLite`.
+3. `serve`: levanta la web local leyendo desde SQLite.
+
+## Comandos
+
+```bash
+python main.py fetch
+python main.py serve
+```
+
+El dashboard queda disponible en `http://127.0.0.1:8000`.
+
+## Uso local
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python main.py fetch
+python main.py serve
+```
+
+## Uso con Docker
+
+```bash
+cp .env.example .env
+docker compose build
+docker compose run --rm app python main.py fetch
+docker compose up
+```
+
+El dashboard queda disponible en `http://localhost:8000`.
+
+Para `fetch` dentro de Docker conviene usar `UA_HEADLESS=true`. Si Microsoft cambia la pantalla de 2FA y necesitas intervenir manualmente, ejecuta `python main.py fetch` fuera del contenedor.
 
 ## Variables principales
 
-Parte de `.env.example` y copia a `.env`.
+Copia `.env.example` a `.env` y completa tus credenciales.
 
 - `UA_USUARIO`
 - `UA_CONTRASENA`
@@ -23,29 +84,21 @@ Parte de `.env.example` y copia a `.env`.
 - `UA_WEB_HOST`
 - `UA_WEB_PORT`
 
-## Uso local
+## Archivos generados
 
-1. `python -m venv .venv`
-2. `source .venv/bin/activate`
-3. `pip install -r requirements.txt`
-4. `python main.py fetch`
-5. `python main.py serve`
+- `data/ua_grades.sqlite3`: base SQLite local
+- `data/historial_notas_*.json`: exportaciones JSON
+- `.auth/ua_profile/`: perfil persistente del navegador
 
-## Uso con Docker
+## Como obtener `UA_TOTP_SECRET`
 
-1. Copia `.env.example` a `.env`
-2. `docker compose build`
-3. `docker compose run --rm app python main.py fetch`
-4. `docker compose up`
+1. Inicia sesion en `https://myaccount.microsoft.com/uac/device-management`.
+2. Cambia el metodo de autenticacion a `Microsoft Entra Auth` en iOS.
+3. Escanea el codigo QR con tu aplicacion de autenticacion.
+4. Obtiene el secreto TOTP desde los detalles del metodo y agregalo a `.env` junto al correo y la contrasena.
 
-El dashboard queda disponible en `http://localhost:8000`.
+## Notas
 
-Para `fetch` dentro de Docker conviene usar `UA_HEADLESS=true`. Si Microsoft cambia la pantalla de 2FA y necesitas intervenir manualmente, ejecuta `python main.py fetch` fuera del contenedor.
-
-
-## Como conseguir TOTP_SECRET
-
-1. Iniciar sesion en https://myaccount.microsoft.com/uac/device-management
-2. Cambiar el metodo de autenticacion a "Ente Auth" IOS
-3. Escanear el codigo QR con la aplicacion de autenticacion
-4. Obtener el TOTP_SECRET apretando detalles. Incluirlo en el .env, ademas del correo y contraseña
+- El proyecto esta pensado para uso personal y local.
+- La web no scrapea en cada refresh; consume el ultimo historial guardado en SQLite.
+- Si quieres actualizar tus datos, vuelve a ejecutar `python main.py fetch`.
