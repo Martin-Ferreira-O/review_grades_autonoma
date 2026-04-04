@@ -93,8 +93,8 @@ Copia `.env.example` a `.env` y completa tus credenciales.
 ## Como obtener `UA_TOTP_SECRET`
 
 1. Inicia sesion en `https://myaccount.microsoft.com/uac/device-management`.
-2. Cambia el metodo de autenticacion a `Microsoft Entra Auth` en iOS.
-3. Escanea el codigo QR con tu aplicacion de autenticacion.
+2. Activar la verificacion de 2 pasos con una aplicacion de Authenticator.
+3. Escanea el codigo QR con la aplicacion `Ente Auth`.
 4. Obtiene el secreto TOTP desde los detalles del metodo y agregalo a `.env` junto al correo y la contrasena.
 
 ## Notas
