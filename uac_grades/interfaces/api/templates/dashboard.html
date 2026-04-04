@@ -45,6 +45,194 @@
         </p>
       </section>
       {% else %}
+      {% if current_term %}
+      <section class="card section-card spotlight-card">
+        <div class="card-header">
+          <h2>Semestre actual</h2>
+          <p>
+            {{ current_term.label }}. Aqui ves donde debes poner mas atencion, donde vas comodo y que
+            promedio necesitas en lo pendiente para aprobar con 4.0 o cerrar tranquilo con 5.5.
+          </p>
+        </div>
+        <div class="cards-grid current-cards-grid">
+          <article class="card metric-card">
+            <span class="metric-label">Promedio parcial</span>
+            <strong>{{ current_term.current_average_text }}</strong>
+          </article>
+          <article class="card metric-card">
+            <span class="metric-label">Avance evaluado</span>
+            <strong>{{ current_term.weighted_progress_text }}</strong>
+          </article>
+          <article class="card metric-card">
+            <span class="metric-label">Evaluaciones cargadas</span>
+            <strong>{{ current_term.graded_components_count }}/{{ current_term.total_components_count }}</strong>
+          </article>
+          <article class="card metric-card danger">
+            <span class="metric-label">Mas atencion</span>
+            <strong>{{ current_term.attention_count }}</strong>
+          </article>
+          <article class="card metric-card">
+            <span class="metric-label">Vigilancia</span>
+            <strong>{{ current_term.watch_count }}</strong>
+          </article>
+          <article class="card metric-card success">
+            <span class="metric-label">Puedes relajarte</span>
+            <strong>{{ current_term.relaxed_count }}</strong>
+          </article>
+        </div>
+      </section>
+
+      <section class="card section-card">
+        <div class="card-header">
+          <h2>Que necesitas en lo que falta</h2>
+          <p>
+            Si ya tienes notas cargadas, esta tabla te dice que promedio necesitas en lo pendiente para
+            pasar con 4.0 y para cerrar sin problemas con 5.5.
+          </p>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Ramo</th>
+                <th>Promedio actual</th>
+                <th>Avance</th>
+                <th>Para 4.0</th>
+                <th>Para 5.5</th>
+                <th>Proyeccion</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for course in current_term.courses %}
+              <tr>
+                <td>
+                  <strong>{{ course.title }}</strong>
+                  <div class="table-note">{{ course.code }}</div>
+                  <div class="table-note">{{ course.summary_message }}</div>
+                </td>
+                <td>{{ course.current_average_text }}</td>
+                <td>
+                  {{ course.evaluated_weight_text }}
+                  <div class="table-note">{{ course.graded_components_count }}/{{ course.weighted_components_count }} evaluaciones</div>
+                </td>
+                <td>{{ course.required_to_pass.text }}</td>
+                <td>{{ course.required_to_comfort.text }}</td>
+                <td>{{ course.projected_final_text }}</td>
+                <td>
+                  <span class="status-pill {{ course.attention_variant }}">
+                    {{ course.attention_label }}
+                  </span>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card section-card">
+        <div class="card-header">
+          <h2>Detalle por ramo</h2>
+          <p>Componentes, pesos y notas del semestre actual para revisar cada ramo en detalle.</p>
+        </div>
+        <div class="course-details-list">
+          {% for course in current_term.courses %}
+          <details class="course-detail">
+            <summary>
+              <div>
+                <strong>{{ course.title }}</strong>
+                <div class="table-note">{{ course.code }}</div>
+              </div>
+              <div class="detail-summary-meta">
+                <span>{{ course.current_average_text }}</span>
+                <span>{{ course.evaluated_weight_text }}</span>
+                <span class="status-pill {{ course.attention_variant }}">{{ course.attention_label }}</span>
+              </div>
+            </summary>
+
+            <div class="detail-metrics-grid">
+              <div class="detail-metric">
+                <span class="metric-label">Promedio actual</span>
+                <strong>{{ course.current_average_text }}</strong>
+              </div>
+              <div class="detail-metric">
+                <span class="metric-label">Necesitas para 4.0</span>
+                <strong>{{ course.required_to_pass.text }}</strong>
+              </div>
+              <div class="detail-metric">
+                <span class="metric-label">Necesitas para 5.5</span>
+                <strong>{{ course.required_to_comfort.text }}</strong>
+              </div>
+              <div class="detail-metric">
+                <span class="metric-label">Proyeccion</span>
+                <strong>{{ course.projected_final_text }}</strong>
+              </div>
+            </div>
+
+            <p class="detail-message">{{ course.summary_message }}</p>
+
+            {% if course.mandatory_messages %}
+            <div class="inline-messages">
+              {% for message in course.mandatory_messages %}
+              <p class="inline-message">{{ message }}</p>
+              {% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="table-wrap detail-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Componente</th>
+                    <th>Peso</th>
+                    <th>Nota</th>
+                    <th>Estado</th>
+                    <th>Obligatorio</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for component in course.components %}
+                  <tr>
+                    <td>
+                      <strong>{{ component.name }}</strong>
+                      {% if component.mandatory_message %}
+                      <div class="table-note">{{ component.mandatory_message }}</div>
+                      {% endif %}
+                      {% if component.subcomponents %}
+                      <div class="subcomponent-list">
+                        {% for subcomponent in component.subcomponents %}
+                        <div class="subcomponent-item">
+                          {{ subcomponent.name }} · {{ subcomponent.weight_text }} · {{ subcomponent.grade_text }}
+                        </div>
+                        {% endfor %}
+                      </div>
+                      {% endif %}
+                    </td>
+                    <td>{{ component.weight_text }}</td>
+                    <td>{{ component.grade_text }}</td>
+                    <td>
+                      <span class="status-pill {{ component.status_variant }}">
+                        {{ component.status_text }}
+                      </span>
+                    </td>
+                    <td>{{ component.must_pass_text }}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </details>
+          {% endfor %}
+        </div>
+      </section>
+      {% endif %}
+
+      <section class="section-heading">
+        <h2>Contexto historico</h2>
+        <p>Usa este bloque como referencia general. La decision diaria del semestre actual esta arriba.</p>
+      </section>
+
       <section class="cards-grid">
         <article class="card metric-card">
           <span class="metric-label">Promedio global</span>

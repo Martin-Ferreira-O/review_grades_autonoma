@@ -62,7 +62,11 @@ code {
 .hero-copy,
 .card-header p,
 .term-panel p,
-.empty-state p {
+.empty-state p,
+.section-heading p,
+.detail-message,
+.inline-message,
+.table-note {
   color: var(--muted);
   line-height: 1.6;
 }
@@ -70,7 +74,10 @@ code {
 .hero-meta,
 .cards-grid,
 .charts-grid,
-.term-grid {
+.term-grid,
+.current-cards-grid,
+.detail-metrics-grid,
+.course-details-list {
   display: grid;
   gap: 1rem;
 }
@@ -84,8 +91,17 @@ code {
   grid-template-columns: repeat(6, minmax(0, 1fr));
 }
 
+.current-cards-grid {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
 .charts-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.detail-metrics-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 1rem 0;
 }
 
 .card,
@@ -148,6 +164,18 @@ code {
   margin-top: 1rem;
 }
 
+.spotlight-card {
+  margin-top: 0;
+}
+
+.section-heading {
+  margin-top: 1.5rem;
+}
+
+.section-heading h2 {
+  margin: 0 0 0.35rem;
+}
+
 .term-panel {
   display: flex;
   justify-content: space-between;
@@ -163,6 +191,10 @@ code {
 
 .table-wrap {
   overflow-x: auto;
+}
+
+.table-note {
+  font-size: 0.84rem;
 }
 
 table {
@@ -204,9 +236,92 @@ tbody td {
   color: #fdba74;
 }
 
+.status-pill.info {
+  background: rgba(96, 165, 250, 0.16);
+  color: #93c5fd;
+}
+
 .status-pill.muted {
   background: rgba(148, 163, 184, 0.14);
   color: #cbd5e1;
+}
+
+.course-detail {
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: rgba(9, 17, 31, 0.45);
+  overflow: hidden;
+}
+
+.course-detail summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.1rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.course-detail summary::-webkit-details-marker {
+  display: none;
+}
+
+.course-detail[open] summary {
+  border-bottom: 1px solid var(--line);
+}
+
+.course-detail > *:not(summary) {
+  padding-left: 1.1rem;
+  padding-right: 1.1rem;
+}
+
+.detail-summary-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.detail-metric {
+  padding: 0.85rem 0.95rem;
+  border: 1px solid var(--line);
+  border-radius: 0.9rem;
+  background: rgba(15, 23, 42, 0.52);
+}
+
+.detail-metric strong {
+  display: block;
+  margin-top: 0.45rem;
+  font-size: 1.3rem;
+}
+
+.detail-message {
+  margin: 0 0 1rem;
+}
+
+.inline-messages {
+  margin-bottom: 1rem;
+}
+
+.inline-message {
+  margin: 0.35rem 0;
+}
+
+.detail-table-wrap {
+  padding-bottom: 1rem;
+}
+
+.subcomponent-list {
+  margin-top: 0.45rem;
+}
+
+.subcomponent-item {
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.5;
 }
 
 canvas {
@@ -217,7 +332,9 @@ canvas {
 @media (max-width: 1024px) {
   .hero,
   .cards-grid,
-  .charts-grid {
+  .charts-grid,
+  .current-cards-grid,
+  .detail-metrics-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -228,6 +345,11 @@ canvas {
   }
 
   .term-panel {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .course-detail summary {
     flex-direction: column;
     align-items: flex-start;
   }
