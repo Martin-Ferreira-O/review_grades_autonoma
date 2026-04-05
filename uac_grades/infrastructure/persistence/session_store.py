@@ -62,6 +62,40 @@ class SessionStateStore:
 
         return cookies
 
+    def save_httpx_cookies(self, cookies: httpx.Cookies) -> None:
+        payload = self.load() if self.exists() else {"cookies": [], "origins": []}
+        existing_cookies = {
+            self._cookie_key(cookie): cookie
+            for cookie in payload.get("cookies", [])
+            if isinstance(cookie, dict)
+        }
+
+        serialized_cookies = []
+        for cookie in cookies.jar:
+            existing = existing_cookies.get((cookie.name, cookie.domain or "", cookie.path or "/"), {})
+            serialized = {
+                **{key: value for key, value in existing.items() if key not in {"name", "value", "domain", "path"}},
+                "name": cookie.name,
+                "value": cookie.value,
+                "domain": cookie.domain or "",
+                "path": cookie.path or "/",
+            }
+            if cookie.expires is not None:
+                serialized["expires"] = cookie.expires
+            serialized_cookies.append(serialized)
+
+        payload["cookies"] = serialized_cookies
+        payload.setdefault("origins", [])
+        self._storage_state_path.parent.mkdir(parents=True, exist_ok=True)
+        self._storage_state_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    def _cookie_key(self, cookie: dict[str, Any]) -> tuple[str, str, str]:
+        return (
+            str(cookie.get("name") or "").strip(),
+            str(cookie.get("domain") or ""),
+            str(cookie.get("path") or "/"),
+        )
+
     async def save(self, context: BrowserContext) -> None:
         self._storage_state_path.parent.mkdir(parents=True, exist_ok=True)
         await context.storage_state(path=str(self._storage_state_path))

@@ -3,6 +3,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import httpx
+
 from uac_grades.infrastructure.persistence import SessionStateStore
 
 
@@ -82,6 +84,41 @@ class SessionStateStoreTests(unittest.TestCase):
 
             with self.assertRaisesRegex(RuntimeError, "no es JSON valido"):
                 store.load()
+
+    def test_save_httpx_cookies_updates_storage_state_with_rotated_cookie_values(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "storage_state.json"
+            path.write_text(
+                json.dumps(
+                    {
+                        "cookies": [
+                            {
+                                "name": "JSESSIONID",
+                                "value": "old-cookie",
+                                "domain": "autoserviciooci.uautonoma.cl",
+                                "path": "/StudentSelfService",
+                                "httpOnly": True,
+                            }
+                        ],
+                        "origins": [],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            store = SessionStateStore(path)
+            cookies = httpx.Cookies()
+            cookies.set(
+                "JSESSIONID",
+                "new-cookie",
+                domain="autoserviciooci.uautonoma.cl",
+                path="/StudentSelfService",
+            )
+
+            store.save_httpx_cookies(cookies)
+
+            payload = store.load()
+            self.assertEqual(payload["cookies"][0]["value"], "new-cookie")
+            self.assertTrue(payload["cookies"][0]["httpOnly"])
 
 
 if __name__ == "__main__":

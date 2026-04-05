@@ -14,7 +14,7 @@
 
 ## Resumen
 
-`UA Grades` automatiza el acceso a Banner, recorre todos los periodos disponibles para tu cuenta y construye un historial academico local.
+`UA Grades` automatiza el acceso a Banner y construye un historial academico local a partir de tus datos en Banner.
 
 Con ese historial puedes:
 
@@ -26,8 +26,9 @@ Con ese historial puedes:
 
 ## Caracteristicas
 
-- Extraccion automatizada con `Playwright`
+- Extraccion HTTP-first con `httpx`
 - Login con Microsoft + `TOTP`
+- Renovacion de sesion con `Playwright` solo cuando hace falta
 - Historial consolidado de todos los semestres disponibles
 - Persistencia local en `SQLite`
 - Exportacion a `JSON`
@@ -36,16 +37,26 @@ Con ese historial puedes:
 
 ## Flujo
 
-1. `fetch`: inicia sesion y extrae el historial academico desde Banner.
-2. Guarda el resultado en `JSON` y `SQLite`.
-3. `serve`: levanta la web local leyendo desde SQLite.
+1. `fetch`: intenta reutilizar la sesion guardada en `.auth/storage_state.json`.
+2. Si ya existe historial local, actualiza solo el periodo actual y conserva intactos los semestres anteriores.
+3. Si no existe historial local, o si usas `fetch --full`, recorre todos los periodos y rehace el historial completo.
+4. Si la sesion expiro, abre `Playwright`, renueva login Microsoft + TOTP, actualiza la sesion y continua por HTTP.
+5. Guarda el resultado en `JSON` y `SQLite`.
+6. `serve`: levanta la web local leyendo desde SQLite.
 
 ## Comandos
 
 ```bash
 python main.py fetch
+python main.py fetch --full
 python main.py serve
 ```
+
+`fetch` actualiza solo el semestre actual cuando ya existe un historial guardado.
+
+Usa `python main.py fetch --full` si quieres recargar todos los semestres manualmente.
+
+Si la sesion HTTP sigue vigente, `fetch` no deberia abrir ningun browser.
 
 El dashboard queda disponible en `http://127.0.0.1:8000`.
 
@@ -56,6 +67,7 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 python main.py fetch
+python main.py fetch --full
 python main.py serve
 ```
 
@@ -70,7 +82,7 @@ docker compose up
 
 El dashboard queda disponible en `http://localhost:8000`.
 
-Para `fetch` dentro de Docker conviene usar `UA_HEADLESS=true`. Si Microsoft cambia la pantalla de 2FA y necesitas intervenir manualmente, ejecuta `python main.py fetch` fuera del contenedor.
+Para `fetch` dentro de Docker conviene usar `UA_HEADLESS=true`. Esa opcion solo afecta el browser de renovacion. Si Microsoft cambia la pantalla de 2FA y necesitas intervenir manualmente, ejecuta `python main.py fetch` fuera del contenedor.
 
 ## Variables principales
 
@@ -79,16 +91,39 @@ Copia `.env.example` a `.env` y completa tus credenciales.
 - `UA_USUARIO`
 - `UA_CONTRASENA`
 - `UA_TOTP_SECRET`
+- `UA_MANTENER_SESION`
+- `UA_HEADLESS`
 - `UA_OUTPUT_DIR`
 - `UA_SQLITE_PATH`
 - `UA_WEB_HOST`
 - `UA_WEB_PORT`
+- `UA_CAPTURE_BANNER_CONTRACT`
+
+## Sesion y autenticacion
+
+- `.auth/storage_state.json` es la sesion reutilizable principal del flujo HTTP.
+- `.auth/ua_profile/` conserva el perfil persistente de Chromium usado solo cuando hay que renovar la sesion.
+- `UA_HEADLESS` y `UA_SLOW_MO` solo afectan ese flujo de renovacion.
+- `UA_MANTENER_SESION=true` responde automaticamente la pantalla de Microsoft "Mantener sesion iniciada".
+
+## Captura de contrato Banner
+
+Si necesitas refrescar fixtures o diagnosticar cambios de Banner, puedes capturar el contrato HTTP real con:
+
+```bash
+UA_CAPTURE_BANNER_CONTRACT=true python main.py fetch --full
+```
+
+Eso genera artifacts en `data/banner_contract/`, incluyendo `summary.json` y una captura por endpoint observado.
 
 ## Archivos generados
 
 - `data/ua_grades.sqlite3`: base SQLite local
 - `data/historial_notas_*.json`: exportaciones JSON
-- `.auth/ua_profile/`: perfil persistente del navegador
+- `data/debug_notas_inicial.html` y `data/debug_notas_final.html`: HTMLs de debug del fetch HTTP
+- `data/banner_contract/`: capturas del contrato HTTP cuando `UA_CAPTURE_BANNER_CONTRACT=true`
+- `.auth/storage_state.json`: sesion HTTP reutilizable
+- `.auth/ua_profile/`: perfil persistente del navegador usado para renovacion
 
 ## Como obtener `UA_TOTP_SECRET`
 
@@ -102,3 +137,4 @@ Copia `.env.example` a `.env` y completa tus credenciales.
 - El proyecto esta pensado para uso personal y local.
 - La web no scrapea en cada refresh; consume el ultimo historial guardado en SQLite.
 - Si quieres actualizar tus datos, vuelve a ejecutar `python main.py fetch`.
+- Los screenshots del browser solo se generan en problemas de login o renovacion, no en el fetch HTTP normal.

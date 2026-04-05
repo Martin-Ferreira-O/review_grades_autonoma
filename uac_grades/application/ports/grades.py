@@ -13,3 +13,7 @@ class AcademicHistoryPort(Protocol):
     async def fetch_academic_history(self) -> AcademicHistory:
         """Return the complete academic history from the source system."""
         raise NotImplementedError
+
+    async def fetch_current_term_history(self) -> AcademicHistory:
+        """Return only the latest/current term history from the source system."""
+        raise NotImplementedError

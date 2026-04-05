@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from typing import Callable
+
 from playwright.async_api import Page
 
+from uac_grades.infrastructure.banner.http_client import BannerHttpClient
 from uac_grades.infrastructure.browser.playwright_context import PlaywrightBrowserSession
 from uac_grades.infrastructure.config.settings import Settings
 from uac_grades.infrastructure.persistence.debug_store import DebugArtifactStore
@@ -14,39 +17,67 @@ class MicrosoftAuthenticator:
     def __init__(
         self,
         settings: Settings,
-        browser: PlaywrightBrowserSession,
         debug_store: DebugArtifactStore,
         session_store: SessionStateStore,
         totp_provider: TotpCodeProvider,
+        http_client: BannerHttpClient | None = None,
+        browser_factory: Callable[[Settings], PlaywrightBrowserSession] | None = None,
     ):
         self._settings = settings
-        self._browser = browser
         self._debug_store = debug_store
         self._session_store = session_store
         self._totp_provider = totp_provider
+        self._http_client = http_client or BannerHttpClient(settings, session_store)
+        self._browser_factory = browser_factory or PlaywrightBrowserSession
+        self._session_updated = False
 
     async def ensure_session(self) -> None:
-        page = self._browser.page
-
         print("🔐 Comprobando sesión reutilizable...")
-        await page.goto(self._settings.urls.grades, wait_until="networkidle", timeout=30000)
+        self._session_updated = False
 
-        if await self._grades_page_available(page):
-            print("  ✓ Sesión reutilizada desde el perfil persistente")
+        if await self._http_client.probe_grades_session():
+            print("  ✓ Sesión reutilizada desde storage_state.json")
             return
 
-        print("  → La sesión guardada no está disponible. Iniciando login...")
-        await self._login(page)
-        await page.goto(self._settings.urls.grades, wait_until="networkidle", timeout=30000)
+        print("  → La sesión guardada no está disponible. Iniciando renovación...")
+        await self._renew_session_with_browser()
 
-        if not await self._grades_page_available(page, timeout=10000):
-            raise RuntimeError("No fue posible abrir la página de notas tras iniciar sesión")
+        if not await self._http_client.probe_grades_session():
+            raise RuntimeError("No fue posible validar la sesión HTTP tras la renovación")
 
+        self._session_updated = True
         print("  ✓ Sesión renovada y lista para próximas ejecuciones")
 
     async def persist_session(self) -> None:
-        await self._session_store.save(self._browser.context)
+        if not self._session_updated:
+            return
+
         print(f"💾 Estado de sesión actualizado en {self._session_store.path}")
+        self._session_updated = False
+
+    async def _renew_session_with_browser(self) -> None:
+        browser = self._browser_factory(self._settings)
+        await browser.start()
+
+        try:
+            page = browser.page
+            await page.goto(self._settings.urls.grades, wait_until="networkidle", timeout=30000)
+
+            if await self._grades_page_available(page):
+                print("  ✓ Sesión recuperada desde el perfil persistente del browser")
+                await self._session_store.save(browser.context)
+                return
+
+            print("  → La sesión guardada no está disponible. Iniciando login...")
+            await self._login(page)
+            await page.goto(self._settings.urls.grades, wait_until="networkidle", timeout=30000)
+
+            if not await self._grades_page_available(page, timeout=10000):
+                raise RuntimeError("No fue posible abrir la página de notas tras iniciar sesión")
+
+            await self._session_store.save(browser.context)
+        finally:
+            await browser.close()
 
     async def _wait_visible(self, page: Page, selector: str, timeout: int = 10000) -> bool:
         try:

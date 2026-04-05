@@ -2,13 +2,11 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
-from typing import cast
 
 import httpx
 
 from uac_grades.domain.models import Credentials
 from uac_grades.infrastructure.banner import BannerGateway, BannerHttpClient
-from uac_grades.infrastructure.browser.playwright_context import PlaywrightBrowserSession
 from uac_grades.infrastructure.config.settings import (
     BrowserSettings,
     Settings,
@@ -64,7 +62,7 @@ def _settings(temp_dir: Path) -> Settings:
     )
 
 
-def _write_storage_state(path: Path) -> SessionStateStore:
+def _write_storage_state(path: Path, *, cookie_value: str = "abc123") -> SessionStateStore:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         json.dumps(
@@ -72,7 +70,7 @@ def _write_storage_state(path: Path) -> SessionStateStore:
                 "cookies": [
                     {
                         "name": "JSESSIONID",
-                        "value": "abc123",
+                        "value": cookie_value,
                         "domain": "autoserviciooci.uautonoma.cl",
                         "path": "/StudentSelfService",
                     }
@@ -83,22 +81,6 @@ def _write_storage_state(path: Path) -> SessionStateStore:
         encoding="utf-8",
     )
     return SessionStateStore(path)
-
-
-class _UnusedBrowser:
-    page = None
-
-    def __init__(self, context=None):
-        self.context = context
-
-
-class _FakeBrowserContext:
-    def __init__(self, payload: dict):
-        self._payload = payload
-
-    async def storage_state(self, path: str) -> None:
-        Path(path).parent.mkdir(parents=True, exist_ok=True)
-        Path(path).write_text(json.dumps(self._payload), encoding="utf-8")
 
 
 class BannerGatewayTermsLevelsTests(unittest.IsolatedAsyncioTestCase):
@@ -119,7 +101,6 @@ class BannerGatewayTermsLevelsTests(unittest.IsolatedAsyncioTestCase):
             http_client = BannerHttpClient(settings, store, transport=httpx.MockTransport(handler))
             gateway = BannerGateway(
                 settings=settings,
-                browser=cast(PlaywrightBrowserSession, _UnusedBrowser()),
                 debug_store=DebugArtifactStore(settings.storage.output_dir),
                 http_client=http_client,
             )
@@ -152,7 +133,6 @@ class BannerGatewayTermsLevelsTests(unittest.IsolatedAsyncioTestCase):
             http_client = BannerHttpClient(settings, store, transport=httpx.MockTransport(handler))
             gateway = BannerGateway(
                 settings=settings,
-                browser=cast(PlaywrightBrowserSession, _UnusedBrowser()),
                 debug_store=DebugArtifactStore(settings.storage.output_dir),
                 http_client=http_client,
             )
@@ -179,7 +159,6 @@ class BannerGatewayTermsLevelsTests(unittest.IsolatedAsyncioTestCase):
             http_client = BannerHttpClient(settings, store, transport=httpx.MockTransport(handler))
             gateway = BannerGateway(
                 settings=settings,
-                browser=cast(PlaywrightBrowserSession, _UnusedBrowser()),
                 debug_store=DebugArtifactStore(settings.storage.output_dir),
                 http_client=http_client,
             )
@@ -189,42 +168,46 @@ class BannerGatewayTermsLevelsTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(term, {"code": "202510", "description": "Primer Semestre - 2025"})
             self.assertEqual(level, {"code": "PR", "description": "Pregrado"})
 
-    async def test_fetch_terms_syncs_storage_state_from_live_browser_session(self) -> None:
+    async def test_open_grades_page_preserves_rotated_cookies_for_following_requests(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             settings = _settings(temp_path)
-            session_store = SessionStateStore(settings.storage.storage_state_path)
+            store = _write_storage_state(settings.storage.storage_state_path, cookie_value="seed-cookie")
             terms_fixture = _load_fixture("terms")
-            browser_context = _FakeBrowserContext(
-                {
-                    "cookies": [
-                        {
-                            "name": "JSESSIONID",
-                            "value": "fresh-cookie",
-                            "domain": "autoserviciooci.uautonoma.cl",
-                            "path": "/StudentSelfService",
-                        }
-                    ],
-                    "origins": [],
-                }
-            )
+            seen_paths: list[str] = []
 
             def handler(request: httpx.Request) -> httpx.Response:
-                self.assertIn("JSESSIONID=fresh-cookie", request.headers.get("cookie", ""))
-                return httpx.Response(200, json=terms_fixture["response"]["body"], request=request)
+                seen_paths.append(request.url.path)
 
-            http_client = BannerHttpClient(settings, session_store, transport=httpx.MockTransport(handler))
+                if request.url.path == "/StudentSelfService/ssb/studentGrades":
+                    self.assertIn("JSESSIONID=seed-cookie", request.headers.get("cookie", ""))
+                    return httpx.Response(
+                        200,
+                        text="<html><body><input id=\"term\" /></body></html>",
+                        headers={
+                            "set-cookie": "JSESSIONID=rotated-cookie; Path=/StudentSelfService; Domain=autoserviciooci.uautonoma.cl"
+                        },
+                        request=request,
+                    )
+
+                if request.url.path == "/StudentSelfService/studentGrades/term":
+                    self.assertIn("JSESSIONID=rotated-cookie", request.headers.get("cookie", ""))
+                    return httpx.Response(200, json=terms_fixture["response"]["body"], request=request)
+
+                raise AssertionError(f"Unexpected path {request.url.path}")
+
+            http_client = BannerHttpClient(settings, store, transport=httpx.MockTransport(handler))
             gateway = BannerGateway(
                 settings=settings,
-                browser=cast(PlaywrightBrowserSession, _UnusedBrowser(context=browser_context)),
                 debug_store=DebugArtifactStore(settings.storage.output_dir),
-                session_store=session_store,
                 http_client=http_client,
             )
 
-            terms = await gateway._fetch_terms()
+            async with http_client.create_client() as client:
+                await gateway._open_grades_page(client)
+                terms = await gateway._fetch_terms(client)
 
-            self.assertTrue(session_store.exists())
+            self.assertEqual(seen_paths, ["/StudentSelfService/ssb/studentGrades", "/StudentSelfService/studentGrades/term"])
             self.assertEqual(terms[0]["code"], "202610")
 
 

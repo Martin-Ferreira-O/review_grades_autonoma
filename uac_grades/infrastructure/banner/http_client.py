@@ -8,6 +8,8 @@ import httpx
 from uac_grades.infrastructure.config.settings import Settings
 from uac_grades.infrastructure.persistence.session_store import SessionStateStore
 
+from .contract_capture import BannerHttpContractCapture
+
 
 class BannerHttpClient:
     _DEFAULT_TIMEOUT = 30.0
@@ -21,20 +23,22 @@ class BannerHttpClient:
     def __init__(
         self,
         settings: Settings,
-        session_store: SessionStateStore,
+        session_store: SessionStateStore | None,
         *,
         transport: httpx.AsyncBaseTransport | None = None,
+        contract_capture: BannerHttpContractCapture | None = None,
     ):
         self._settings = settings
         self._session_store = session_store
         self._transport = transport
+        self._contract_capture = contract_capture
         grades_url = urlsplit(settings.urls.grades)
         self._base_url = f"{grades_url.scheme}://{grades_url.netloc}"
 
     def create_client(self) -> httpx.AsyncClient:
         return httpx.AsyncClient(
             base_url=self._base_url,
-            cookies=self._session_store.load_httpx_cookies(),
+            cookies=self._session_store.load_httpx_cookies() if self._session_store is not None else None,
             follow_redirects=True,
             timeout=self._DEFAULT_TIMEOUT,
             transport=self._transport,
@@ -51,13 +55,21 @@ class BannerHttpClient:
     ) -> httpx.Response:
         if client is not None:
             response = await client.request(method, path_or_url, params=params, headers=headers)
+            await self._capture(response)
             response.raise_for_status()
             return response
 
         async with self.create_client() as owned_client:
             response = await owned_client.request(method, path_or_url, params=params, headers=headers)
+            await self._capture(response)
             response.raise_for_status()
             return response
+
+    async def _capture(self, response: httpx.Response) -> None:
+        if self._contract_capture is None:
+            return
+
+        await self._contract_capture.record(response)
 
     async def get_text(
         self,
@@ -82,6 +94,9 @@ class BannerHttpClient:
         return response.json()
 
     async def probe_grades_session(self) -> bool:
+        if self._session_store is None:
+            return False
+
         if not self._session_store.exists():
             return False
 
