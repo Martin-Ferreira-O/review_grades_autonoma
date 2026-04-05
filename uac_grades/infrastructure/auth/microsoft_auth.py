@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Callable
 
 from playwright.async_api import Page
@@ -14,6 +15,25 @@ from .totp import TotpCodeProvider
 
 
 class MicrosoftAuthenticator:
+    _TOTP_VERIFY_SELECTORS = [
+        "#idSubmit_SAOTCC_Continue",
+        'button:has-text("Comprobar")',
+        'button:has-text("Verify")',
+        'button:has-text("Siguiente")',
+        'button:has-text("Next")',
+        'input[type="submit"][value="Comprobar"]',
+        'input[type="submit"][value="Verify"]',
+    ]
+    _TOTP_ERROR_SELECTORS = [
+        "#idDiv_SAOTCC_ErrorMsg_OTC",
+        "#idDiv_SAOTCC_ErrorMsg",
+        '[role="alert"]',
+        "text=/No ha especificado el código de verificación previsto/i",
+        "text=/Inténtelo de nuevo/i",
+        "text=/incorrect code/i",
+        "text=/verification code/i",
+    ]
+
     def __init__(
         self,
         settings: Settings,
@@ -86,6 +106,12 @@ class MicrosoftAuthenticator:
         except Exception:
             return False
 
+    async def _is_visible(self, page: Page, selector: str) -> bool:
+        try:
+            return await page.locator(selector).first.is_visible()
+        except Exception:
+            return False
+
     async def _grades_page_available(self, page: Page, timeout: int = 5000) -> bool:
         if "microsoftonline.com" in page.url.lower():
             return False
@@ -146,18 +172,17 @@ class MicrosoftAuthenticator:
         totp_found = False
         for selector in totp_selectors:
             if await self._wait_visible(page, selector, timeout=5000):
-                code = self._totp_provider.current_code()
-                print(f"  🔑 Código TOTP generado: {code}")
-                await page.fill(selector, code)
-                await page.keyboard.press("Enter")
-                await page.wait_for_load_state("networkidle")
-                await page.wait_for_timeout(1500)
-                print("  ✓ Código TOTP ingresado")
                 totp_found = True
+                if await self._submit_totp_with_retries(page, selector):
+                    print("  ✓ Código TOTP ingresado")
+                    break
+
+                print("  ⚠️  Los intentos automáticos de TOTP fallaron.")
+                totp_found = False
                 break
 
         if not totp_found:
-            print("  ⚠️  Campo TOTP no encontrado automáticamente.")
+            print("  ⚠️  Campo TOTP no encontrado automáticamente o el TOTP automático fue rechazado.")
             print(
                 "      "
                 f"Tienes {self._settings.browser.wait_2fa_seconds}s para completar el 2FA manualmente en el browser..."
@@ -172,6 +197,69 @@ class MicrosoftAuthenticator:
         await self._respond_keep_session(page)
         await page.wait_for_timeout(2000)
         print(f"\n✅ Login completado — URL actual: {page.url}\n")
+
+    async def _submit_totp_with_retries(self, page: Page, selector: str) -> bool:
+        for attempt in range(1, 4):
+            await self._wait_for_fresh_totp_window(page, attempt)
+            code = self._totp_provider.current_code()
+            remaining = self._totp_provider.seconds_remaining()
+            print(f"  🔑 Código TOTP generado (intento {attempt}, vence en {remaining}s)")
+
+            field = page.locator(selector).first
+            await field.clear()
+            await field.fill(code)
+            await page.wait_for_timeout(250)
+
+            if not await self._click_first_visible(page, self._TOTP_VERIFY_SELECTORS):
+                await page.keyboard.press("Enter")
+
+            result = await self._wait_for_totp_result(page, selector)
+            if result == "success":
+                return True
+
+            print("  ⚠️  Microsoft rechazó el TOTP automático. Reintentando...")
+
+        return False
+
+    async def _wait_for_fresh_totp_window(self, page: Page, attempt: int) -> None:
+        min_remaining_seconds = 12 if attempt == 1 else 8
+        remaining = self._totp_provider.seconds_remaining()
+        if remaining > min_remaining_seconds:
+            return
+
+        wait_ms = (remaining + 1) * 1000
+        print(f"  ⏳ Esperando {remaining + 1}s para generar un TOTP fresco...")
+        await page.wait_for_timeout(wait_ms)
+
+    async def _click_first_visible(self, page: Page, selectors: list[str]) -> bool:
+        for selector in selectors:
+            if await self._is_visible(page, selector):
+                await page.locator(selector).first.click()
+                return True
+        return False
+
+    async def _wait_for_totp_result(self, page: Page, selector: str, timeout_ms: int = 12000) -> str:
+        deadline_steps = max(1, timeout_ms // 250)
+
+        for _ in range(deadline_steps):
+            if "microsoftonline.com" not in page.url.lower():
+                return "success"
+
+            if await self._is_visible(page, "#idSIButton9") or await self._is_visible(page, "#idBtn_Back"):
+                return "success"
+
+            for error_selector in self._TOTP_ERROR_SELECTORS:
+                if await self._is_visible(page, error_selector):
+                    return "retry"
+
+            if not await self._is_visible(page, selector):
+                body_text = (await page.locator("body").inner_text()).strip()
+                if not re.search(r"int[eé]ntelo de nuevo|verification code|incorrect code", body_text, re.IGNORECASE):
+                    return "success"
+
+            await page.wait_for_timeout(250)
+
+        return "retry"
 
     async def _respond_keep_session(self, page: Page) -> None:
         selector_yes = "#idSIButton9"
