@@ -4,7 +4,9 @@ from uac_grades.domain.models import AcademicHistory, GradeSnapshot
 from uac_grades.infrastructure.browser.playwright_context import PlaywrightBrowserSession
 from uac_grades.infrastructure.config.settings import Settings
 from uac_grades.infrastructure.persistence.debug_store import DebugArtifactStore
+from uac_grades.infrastructure.persistence.session_store import SessionStateStore
 
+from .http_client import BannerHttpClient
 from .mappers import (
     banner_flag_to_bool,
     build_academic_history,
@@ -17,10 +19,26 @@ from .mappers import (
 
 
 class BannerGateway:
-    def __init__(self, settings: Settings, browser: PlaywrightBrowserSession, debug_store: DebugArtifactStore):
+    _TERM_ENDPOINT = "/StudentSelfService/studentGrades/term"
+    _LEVEL_ENDPOINT = "/StudentSelfService/studentGrades/level"
+    _JSON_HEADERS = {"Accept": "application/json, text/javascript, */*; q=0.01"}
+
+    def __init__(
+        self,
+        settings: Settings,
+        browser: PlaywrightBrowserSession,
+        debug_store: DebugArtifactStore,
+        session_store: SessionStateStore | None = None,
+        http_client: BannerHttpClient | None = None,
+    ):
         self._settings = settings
         self._browser = browser
         self._debug_store = debug_store
+        self._session_store = session_store or SessionStateStore(settings.storage.storage_state_path)
+        self._http_client = http_client or BannerHttpClient(
+            settings,
+            self._session_store,
+        )
 
     async def fetch_grade_snapshot(self) -> GradeSnapshot:
         await self._open_grades_page()
@@ -76,48 +94,6 @@ class BannerGateway:
         await self._debug_store.save_page_state(page, "debug_notas_final.png", "debug_notas_final.html")
         print("  💾 debug_notas_final.png y debug_notas_final.html guardados")
 
-    async def _get_endpoint(self, selector: str, description: str) -> str:
-        page = self._browser.page
-        locator = page.locator(selector).first
-        await locator.wait_for(state="attached", timeout=10000)
-        endpoint = await locator.get_attribute("data-endpoint")
-
-        if not endpoint:
-            raise RuntimeError(f"No se encontró endpoint para {description} ({selector})")
-
-        return endpoint
-
-    async def _fetch_json(self, endpoint: str, params: dict | None = None):
-        page = self._browser.page
-        return await page.evaluate(
-            """
-            async ({ endpoint, params }) => {
-                const url = new URL(endpoint, window.location.origin);
-
-                for (const [key, value] of Object.entries(params || {})) {
-                    if (value !== undefined && value !== null && value !== "") {
-                        url.searchParams.set(key, String(value));
-                    }
-                }
-
-                const response = await fetch(url.toString(), {
-                    credentials: "same-origin",
-                    headers: {
-                        "Accept": "application/json, text/javascript, */*; q=0.01"
-                    }
-                });
-
-                if (!response.ok) {
-                    const body = await response.text();
-                    throw new Error(`HTTP ${response.status} ${response.statusText}: ${body.slice(0, 400)}`);
-                }
-
-                return await response.json();
-            }
-            """,
-            {"endpoint": endpoint, "params": params or {}},
-        )
-
     async def _fetch_term_and_level(self) -> tuple[dict, dict]:
         terms = await self._fetch_terms()
         term = pick_target_option(
@@ -139,17 +115,29 @@ class BannerGateway:
         return term, level
 
     async def _fetch_terms(self) -> list[dict]:
-        term_endpoint = await self._get_endpoint("#term", "periodos")
-        terms = await self._fetch_json(term_endpoint, {"filter": "", "page": 1, "max": 200})
+        await self._sync_http_session_from_browser()
+        terms = await self._http_client.get_json(
+            self._TERM_ENDPOINT,
+            params={"page": 1, "max": 200},
+            headers=self._JSON_HEADERS,
+        )
         return list_valid_options(terms)
 
     async def _fetch_levels(self, term_code: str) -> list[dict]:
-        level_endpoint = await self._get_endpoint("#level", "niveles")
-        levels = await self._fetch_json(
-            level_endpoint,
-            {"filter": "", "term": term_code, "page": 1, "max": 50},
+        await self._sync_http_session_from_browser()
+        levels = await self._http_client.get_json(
+            self._LEVEL_ENDPOINT,
+            params={"term": term_code, "page": 1, "max": 50},
+            headers=self._JSON_HEADERS,
         )
         return list_valid_options(levels)
+
+    async def _sync_http_session_from_browser(self) -> None:
+        context = getattr(self._browser, "context", None)
+        if context is None:
+            return
+
+        await self._session_store.save(context)
 
     async def _fetch_courses(self, term_code: str, level_code: str) -> list:
         page = self._browser.page
