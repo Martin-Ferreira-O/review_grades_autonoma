@@ -44,6 +44,7 @@ class UrlSettings:
 
 @dataclass(frozen=True)
 class BrowserSettings:
+    capture_banner_contract: bool
     keep_session: bool
     wait_2fa_seconds: int
     headless: bool
@@ -117,6 +118,10 @@ class Settings:
                 ),
             ),
             browser=BrowserSettings(
+                capture_banner_contract=_bool_value(
+                    _env("UA_CAPTURE_BANNER_CONTRACT", "UAC_CAPTURE_BANNER_CONTRACT", "false"),
+                    False,
+                ),
                 keep_session=_bool_value(_env("UA_MANTENER_SESION", "UAC_MANTENER_SESION", "true"), True),
                 wait_2fa_seconds=int(_env("UA_ESPERA_2FA", "UAC_ESPERA_2FA", "60")),
                 headless=_bool_value(_env("UA_HEADLESS", "UAC_HEADLESS", "false"), False),

@@ -1,0 +1,39 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/StudentSelfService/studentGrades/term",
+    "query": {
+      "max": "200",
+      "page": "1"
+    },
+    "headers": {
+      "accept": "application/json, text/javascript, */*; q=0.01",
+      "referer": "https://autoserviciooci.uautonoma.cl/StudentSelfService/ssb/studentGrades"
+    },
+    "post_data": null
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json;charset=UTF-8"
+    },
+    "body": [
+      {
+        "code": "-1",
+        "description": "Todos los periodos"
+      },
+      {
+        "code": "202610",
+        "description": "Primer Semestre - 2026"
+      },
+      {
+        "code": "202520",
+        "description": "Segundo Semestre - 2025"
+      },
+      {
+        "code": "202510",
+        "description": "Primer Semestre - 2025"
+      }
+    ]
+  }
+}

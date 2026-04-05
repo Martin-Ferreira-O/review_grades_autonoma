@@ -1,0 +1,28 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/StudentSelfService/studentGrades/level",
+    "query": {
+      "max": "50",
+      "page": "1",
+      "term": "202610"
+    },
+    "headers": {
+      "accept": "application/json, text/javascript, */*; q=0.01",
+      "referer": "https://autoserviciooci.uautonoma.cl/StudentSelfService/ssb/studentGrades"
+    },
+    "post_data": null
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json;charset=UTF-8"
+    },
+    "body": [
+      {
+        "code": "PR",
+        "description": "Pregrado"
+      }
+    ]
+  }
+}

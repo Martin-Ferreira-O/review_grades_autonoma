@@ -8,6 +8,7 @@ import uvicorn
 from uac_grades.application.use_cases import FetchAcademicHistoryUseCase
 from uac_grades.infrastructure.auth import MicrosoftAuthenticator, TotpCodeProvider
 from uac_grades.infrastructure.banner import BannerGateway
+from uac_grades.infrastructure.banner.contract_capture import BannerContractCapture
 from uac_grades.infrastructure.browser import PlaywrightBrowserSession
 from uac_grades.infrastructure.config import Settings
 from uac_grades.infrastructure.persistence import (
@@ -42,6 +43,11 @@ async def _run_fetch(*, pause: bool) -> None:
     presenter = ConsoleHistoryPresenter()
 
     async with PlaywrightBrowserSession(settings) as browser:
+        contract_capture = None
+        if settings.browser.capture_banner_contract:
+            contract_capture = BannerContractCapture(browser.context, debug_store)
+            contract_capture.start()
+
         authenticator = MicrosoftAuthenticator(
             settings=settings,
             browser=browser,
@@ -68,6 +74,11 @@ async def _run_fetch(*, pause: bool) -> None:
             raise
 
         finally:
+            if contract_capture is not None:
+                summary_path = await contract_capture.stop()
+                if summary_path:
+                    print(f"🧾 Contrato Banner capturado en {summary_path}")
+
             if pause and not settings.browser.headless:
                 input("\nPresiona Enter para cerrar el browser...")
 

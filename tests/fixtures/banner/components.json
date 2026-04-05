@@ -1,0 +1,123 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/StudentSelfService/componentDetails/componentDetails",
+    "query": {
+      "filterText": "",
+      "pageMaxSize": "200",
+      "pageOffset": "0",
+      "selectedCrn": "12346",
+      "selectedTerm": "202510",
+      "sortColumn": "name",
+      "sortDirection": "asc"
+    },
+    "headers": {
+      "accept": "application/json, text/javascript, */*; q=0.01",
+      "referer": "https://autoserviciooci.uautonoma.cl/StudentSelfService/ssb/studentGrades",
+      "x-requested-with": "XMLHttpRequest"
+    },
+    "post_data": null
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json;charset=UTF-8"
+    },
+    "body": {
+      "success": true,
+      "totalCount": 4,
+      "data": [
+        {
+          "class": "net.hedtech.banner.student.ComponentDetailsDecorator",
+          "componentId": 70001,
+          "courseReferenceNumber": "12346",
+          "description": "ASISTENCIA 60%",
+          "grade": "AI",
+          "gradeScale": "ASIST_60",
+          "hasSubComponents": false,
+          "id": 810001,
+          "inclusionIndicator": "F",
+          "isComponent": true,
+          "mustPass": true,
+          "name": "ATTRGRD",
+          "percentage": "100",
+          "score": "100",
+          "studentPidm": 100001,
+          "subComponentCount": 0,
+          "subComponentId": -1,
+          "termCode": "202510",
+          "totalScore": "100",
+          "weight": "0"
+        },
+        {
+          "class": "net.hedtech.banner.student.ComponentDetailsDecorator",
+          "componentId": 70002,
+          "courseReferenceNumber": "12346",
+          "description": "EVALUACION 01",
+          "grade": "5,7",
+          "gradeScale": "REQ_APROB",
+          "hasSubComponents": false,
+          "id": 810002,
+          "inclusionIndicator": "F",
+          "isComponent": true,
+          "mustPass": false,
+          "name": "C01",
+          "percentage": "5,7",
+          "score": "5,7",
+          "studentPidm": 100001,
+          "subComponentCount": 0,
+          "subComponentId": -1,
+          "termCode": "202510",
+          "totalScore": "100",
+          "weight": "35"
+        },
+        {
+          "class": "net.hedtech.banner.student.ComponentDetailsDecorator",
+          "componentId": 70003,
+          "courseReferenceNumber": "12346",
+          "description": "EVALUACION 02",
+          "grade": "7,0",
+          "gradeScale": "REQ_APROB",
+          "hasSubComponents": false,
+          "id": 810003,
+          "inclusionIndicator": "F",
+          "isComponent": true,
+          "mustPass": false,
+          "name": "C02",
+          "percentage": "7",
+          "score": "7",
+          "studentPidm": 100001,
+          "subComponentCount": 0,
+          "subComponentId": -1,
+          "termCode": "202510",
+          "totalScore": "100",
+          "weight": "35"
+        },
+        {
+          "class": "net.hedtech.banner.student.ComponentDetailsDecorator",
+          "componentId": 70004,
+          "courseReferenceNumber": "12346",
+          "description": "EVALUACION 03",
+          "grade": "6,2",
+          "gradeScale": "REQ_APROB",
+          "hasSubComponents": true,
+          "id": 810004,
+          "inclusionIndicator": "F",
+          "isComponent": true,
+          "mustPass": false,
+          "name": "C03",
+          "percentage": "6,2",
+          "score": "6,2",
+          "studentPidm": 100001,
+          "subComponentCount": 3,
+          "subComponentId": -1,
+          "termCode": "202510",
+          "totalScore": "100",
+          "weight": "30"
+        }
+      ],
+      "pageOffset": "0",
+      "pageMaxSize": "200"
+    }
+  }
+}

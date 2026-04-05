@@ -1,0 +1,96 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/StudentSelfService/componentDetails/subComponentDetails",
+    "query": {
+      "selectedComponentId": "70004",
+      "selectedCrn": "12346",
+      "selectedTerm": "202510",
+      "sortColumn": "name",
+      "sortDirection": "asc"
+    },
+    "headers": {
+      "accept": "application/json, text/javascript, */*; q=0.01",
+      "referer": "https://autoserviciooci.uautonoma.cl/StudentSelfService/ssb/studentGrades",
+      "x-requested-with": "XMLHttpRequest"
+    },
+    "post_data": null
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json;charset=UTF-8"
+    },
+    "body": {
+      "success": true,
+      "data": [
+        {
+          "class": "net.hedtech.banner.student.ComponentDetailsDecorator",
+          "componentId": 70004,
+          "courseReferenceNumber": "12346",
+          "description": "PARCIAL 01",
+          "grade": "6,2",
+          "gradeScale": "REQ_APROB",
+          "hasSubComponents": false,
+          "id": 820001,
+          "inclusionIndicator": null,
+          "isComponent": false,
+          "mustPass": false,
+          "name": "S01",
+          "percentage": "6,2",
+          "score": "6,2",
+          "studentPidm": 100001,
+          "subComponentCount": 0,
+          "subComponentId": 910001,
+          "termCode": "202510",
+          "totalScore": "100",
+          "weight": "20"
+        },
+        {
+          "class": "net.hedtech.banner.student.ComponentDetailsDecorator",
+          "componentId": 70004,
+          "courseReferenceNumber": "12346",
+          "description": "PARCIAL 02",
+          "grade": "6,2",
+          "gradeScale": "REQ_APROB",
+          "hasSubComponents": false,
+          "id": 820002,
+          "inclusionIndicator": null,
+          "isComponent": false,
+          "mustPass": false,
+          "name": "S02",
+          "percentage": "6,2",
+          "score": "6,2",
+          "studentPidm": 100001,
+          "subComponentCount": 0,
+          "subComponentId": 910002,
+          "termCode": "202510",
+          "totalScore": "100",
+          "weight": "30"
+        },
+        {
+          "class": "net.hedtech.banner.student.ComponentDetailsDecorator",
+          "componentId": 70004,
+          "courseReferenceNumber": "12346",
+          "description": "PARCIAL 03",
+          "grade": "6,2",
+          "gradeScale": "REQ_APROB",
+          "hasSubComponents": false,
+          "id": 820003,
+          "inclusionIndicator": null,
+          "isComponent": false,
+          "mustPass": false,
+          "name": "S03",
+          "percentage": "6,2",
+          "score": "6,2",
+          "studentPidm": 100001,
+          "subComponentCount": 0,
+          "subComponentId": 910003,
+          "termCode": "202510",
+          "totalScore": "100",
+          "weight": "50"
+        }
+      ]
+    }
+  }
+}

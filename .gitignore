@@ -9,3 +9,4 @@ debug_*.png
 debug_*.html
 data/
 *.sqlite3
+PLAN.md

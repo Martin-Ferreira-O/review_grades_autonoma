@@ -1,0 +1,95 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/StudentSelfService/studentGrades/courses",
+    "query": {
+      "filterText": "",
+      "levelCode": "PR",
+      "pageMaxSize": "200",
+      "pageOffset": "0",
+      "sortColumn": "-1",
+      "sortDirection": "-1",
+      "termCode": "202610"
+    },
+    "headers": {
+      "accept": "application/json, text/javascript, */*; q=0.01",
+      "referer": "https://autoserviciooci.uautonoma.cl/StudentSelfService/ssb/studentGrades",
+      "x-requested-with": "XMLHttpRequest"
+    },
+    "post_data": null
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json;charset=UTF-8"
+    },
+    "body": {
+      "success": true,
+      "data": [
+        {
+          "studentPidm": 100001,
+          "courseNumber": "0101",
+          "levelCode": "PR",
+          "historyFinalGrade": null,
+          "campusCode": "PR",
+          "id": "COURSE0001",
+          "courseReferenceNumber": "12345",
+          "hoursAttempted": "7,000",
+          "section": "P01",
+          "subjectCode": "TEST",
+          "hasComponent": "Y",
+          "hoursEarned": null,
+          "termDescription": "Primer Semestre - 2026",
+          "incmpExtnDate": null,
+          "qualityPoints": null,
+          "studyPath": "1",
+          "class": "net.hedtech.banner.student.CourseDetailDecorator",
+          "calculatedFinalGrade": null,
+          "termCode": "202610",
+          "courseTitle": "Curso de Prueba A",
+          "gpaHours": null,
+          "levelDescription": "Pregrado",
+          "gradeCodeIncmpFinal": null,
+          "finalGrade": null,
+          "midtermGrade": null,
+          "studyPathName": "1|TEST_PLAN|Plan de prueba",
+          "gradeDetailDisplayInd": "Y",
+          "gpa": null
+        },
+        {
+          "studentPidm": 100001,
+          "courseNumber": "0102",
+          "levelCode": "PR",
+          "historyFinalGrade": "5,8",
+          "campusCode": "PR",
+          "id": "COURSE0002",
+          "courseReferenceNumber": "12346",
+          "hoursAttempted": "5,000",
+          "section": "P02",
+          "subjectCode": "TEST",
+          "hasComponent": "Y",
+          "hoursEarned": "5,000",
+          "termDescription": "Primer Semestre - 2026",
+          "incmpExtnDate": null,
+          "qualityPoints": "29,0",
+          "studyPath": "1",
+          "class": "net.hedtech.banner.student.CourseDetailDecorator",
+          "calculatedFinalGrade": "5,8",
+          "termCode": "202610",
+          "courseTitle": "Curso de Prueba B",
+          "gpaHours": "5,000",
+          "levelDescription": "Pregrado",
+          "gradeCodeIncmpFinal": null,
+          "finalGrade": "5,8",
+          "midtermGrade": null,
+          "studyPathName": "1|TEST_PLAN|Plan de prueba",
+          "gradeDetailDisplayInd": "Y",
+          "gpa": "5,8"
+        }
+      ],
+      "totalCount": 2,
+      "pageOffset": "0",
+      "pageMaxSize": "200"
+    }
+  }
+}
