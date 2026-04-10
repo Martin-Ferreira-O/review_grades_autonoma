@@ -37,21 +37,27 @@ def _grade_text(component: GradeComponent) -> str:
     return str(component.grade or component.score_text or component.percentage or "Pendiente")
 
 
-def _leaf_components(components: list[GradeComponent]) -> list[GradeComponent]:
-    leaves: list[GradeComponent] = []
+def _effective_weight(component: GradeComponent, parent_scale: float) -> float:
+    weight = _parse_grade(component.weight) or 0.0
+    return parent_scale * weight / 100.0
+
+
+def _leaf_components(components: list[GradeComponent], parent_scale: float = 100.0) -> list[tuple[GradeComponent, float]]:
+    leaves: list[tuple[GradeComponent, float]] = []
     for component in components:
+        effective_weight = _effective_weight(component, parent_scale)
         if component.subcomponents:
-            leaves.extend(_leaf_components(component.subcomponents))
+            leaves.extend(_leaf_components(component.subcomponents, effective_weight))
             continue
-        leaves.append(component)
+        leaves.append((component, effective_weight))
     return leaves
 
 
-def _assessment_payload(component: GradeComponent, order_index: int) -> ComparisonAssessmentPayload:
+def _assessment_payload(component: GradeComponent, effective_weight: float, order_index: int) -> ComparisonAssessmentPayload:
     return ComparisonAssessmentPayload(
         assessment_name=component.name,
         canonical_assessment_key=_slug(component.name),
-        weight=_parse_grade(component.weight) or 0.0,
+        weight=effective_weight,
         grade=_parse_grade(component.grade),
         grade_text=_grade_text(component),
         must_pass=component.must_pass,
@@ -70,8 +76,8 @@ def build_comparison_sync_payload(
     for snapshot in history.snapshots:
         for course in snapshot.courses:
             assessments = [
-                _assessment_payload(component, index)
-                for index, component in enumerate(_leaf_components(course.components), start=1)
+                _assessment_payload(component, effective_weight, index)
+                for index, (component, effective_weight) in enumerate(_leaf_components(course.components), start=1)
             ]
             courses.append(
                 ComparisonCoursePayload(
