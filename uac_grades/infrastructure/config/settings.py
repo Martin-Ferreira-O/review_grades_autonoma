@@ -80,6 +80,16 @@ class WebSettings:
 
 
 @dataclass(frozen=True)
+class ComparisonSettings:
+    base_url: str
+    identity_path: Path
+    sqlite_path: Path
+    invites_path: Path
+    host: str
+    port: int
+
+
+@dataclass(frozen=True)
 class Settings:
     dotenv_path: Path
     credentials: Credentials
@@ -88,6 +98,7 @@ class Settings:
     target: TargetSelection
     storage: StorageSettings
     web: WebSettings
+    comparison: ComparisonSettings
 
     @classmethod
     def load(cls, dotenv_path: Path | None = None) -> "Settings":
@@ -100,6 +111,27 @@ class Settings:
         sqlite_path = _migrate_legacy_path(
             Path(_env("UA_SQLITE_PATH", "UAC_SQLITE_PATH", str(output_dir / "ua_grades.sqlite3"))),
             output_dir / "uac_grades.sqlite3",
+        )
+        comparison_identity_path = Path(
+            _env(
+                "UA_COMPARISON_IDENTITY_PATH",
+                "UAC_COMPARISON_IDENTITY_PATH",
+                str(output_dir / "comparison_identity.json"),
+            )
+        )
+        comparison_sqlite_path = Path(
+            _env(
+                "UA_COMPARISON_SQLITE_PATH",
+                "UAC_COMPARISON_SQLITE_PATH",
+                str(output_dir / "comparison_dashboard.sqlite3"),
+            )
+        )
+        comparison_invites_path = Path(
+            _env(
+                "UA_COMPARISON_INVITES_PATH",
+                "UAC_COMPARISON_INVITES_PATH",
+                str(output_dir / "comparison_claim_invites.json"),
+            )
         )
 
         return cls(
@@ -152,5 +184,13 @@ class Settings:
             web=WebSettings(
                 host=_env("UA_WEB_HOST", "UAC_WEB_HOST", "127.0.0.1").strip(),
                 port=int(_env("UA_WEB_PORT", "UAC_WEB_PORT", "8000")),
+            ),
+            comparison=ComparisonSettings(
+                base_url=_env("UA_COMPARISON_BASE_URL", "UAC_COMPARISON_BASE_URL", "http://127.0.0.1:9100").strip(),
+                identity_path=comparison_identity_path,
+                sqlite_path=comparison_sqlite_path,
+                invites_path=comparison_invites_path,
+                host=_env("UA_COMPARISON_WEB_HOST", "UAC_COMPARISON_WEB_HOST", "127.0.0.1").strip(),
+                port=int(_env("UA_COMPARISON_WEB_PORT", "UAC_COMPARISON_WEB_PORT", "9100")),
             ),
         )

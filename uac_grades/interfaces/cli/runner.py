@@ -31,6 +31,10 @@ def _build_parser() -> argparse.ArgumentParser:
     serve_parser.add_argument("--host", default=None, help="Host para el servidor web")
     serve_parser.add_argument("--port", type=int, default=None, help="Puerto para el servidor web")
 
+    comparison_parser = subparsers.add_parser("serve-comparison", help="Inicia el dashboard comparador remoto")
+    comparison_parser.add_argument("--host", default=None, help="Host para el servidor de comparacion")
+    comparison_parser.add_argument("--port", type=int, default=None, help="Puerto para el servidor de comparacion")
+
     return parser
 
 
@@ -84,6 +88,15 @@ def _run_server(host: str | None, port: int | None) -> None:
     uvicorn.run(app, host=host or settings.web.host, port=port or settings.web.port)
 
 
+def _run_comparison_server(host: str | None, port: int | None) -> None:
+    settings = Settings.load()
+
+    from uac_grades.interfaces.api import create_comparison_app
+
+    app = create_comparison_app(settings)
+    uvicorn.run(app, host=host or settings.comparison.host, port=port or settings.comparison.port)
+
+
 def run() -> None:
     parser = _build_parser()
     args = parser.parse_args()
@@ -94,6 +107,10 @@ def run() -> None:
 
     if args.command == "serve":
         _run_server(args.host, args.port)
+        return
+
+    if args.command == "serve-comparison":
+        _run_comparison_server(args.host, args.port)
         return
 
     parser.error(f"Comando no soportado: {args.command}")
