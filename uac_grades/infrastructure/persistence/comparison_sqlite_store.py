@@ -7,7 +7,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterator
 
-from uac_grades.domain import ComparisonSyncPayload
+from uac_grades.domain import ComparisonIdentity, ComparisonSyncPayload
 
 
 def _hash_token(raw: str) -> str:
@@ -147,6 +147,20 @@ class ComparisonSqliteStore:
         if row is None:
             raise PermissionError("sync_token_invalid")
         return int(row["id"])
+
+    def load_identity(self, *, display_name: str, sync_token: str) -> ComparisonIdentity:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT display_name, latest_synced_at FROM participants WHERE display_name = ? AND sync_token_hash = ?",
+                (display_name, _hash_token(sync_token)),
+            ).fetchone()
+        if row is None:
+            raise PermissionError("sync_token_invalid")
+        return ComparisonIdentity(
+            display_name=str(row["display_name"]),
+            sync_token=sync_token,
+            last_synced_at=None if row["latest_synced_at"] is None else str(row["latest_synced_at"]),
+        )
 
     def replace_participant_snapshot(self, payload: ComparisonSyncPayload) -> None:
         if not payload.sync_token:

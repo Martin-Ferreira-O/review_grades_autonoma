@@ -81,6 +81,10 @@ def create_comparison_app(settings: Settings | None = None) -> FastAPI:
                 )
                 state = "linked"
             store.replace_participant_snapshot(sync_payload)
+            synced_at = store.load_identity(
+                display_name=sync_payload.participant_name,
+                sync_token=str(sync_payload.sync_token),
+            ).last_synced_at
         except PermissionError as error:
             raise HTTPException(status_code=403, detail=str(error)) from error
 
@@ -90,7 +94,7 @@ def create_comparison_app(settings: Settings | None = None) -> FastAPI:
             "issued_sync_token": issued_sync_token,
             "synced_courses": len(sync_payload.courses),
             "synced_assessments": sum(len(course.assessments) for course in sync_payload.courses),
-            "synced_at": "2026-04-09T18:10:00+00:00",
+            "synced_at": synced_at,
         }
 
     return app

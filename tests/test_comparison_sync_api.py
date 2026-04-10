@@ -1,5 +1,6 @@
 import json
 import os
+import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
@@ -43,8 +44,14 @@ class ComparisonSyncApiTests(unittest.TestCase):
                     },
                 )
 
+                with sqlite3.connect(root / "comparison.sqlite3") as connection:
+                    synced_at = connection.execute(
+                        "SELECT latest_synced_at FROM participants WHERE display_name = ?",
+                        ("Martin A.",),
+                    ).fetchone()[0]
+
         self.assertEqual(response.status_code, 200)
         body = response.json()
         self.assertEqual(body["state"], "linked")
         self.assertTrue(body["issued_sync_token"])
-        self.assertTrue(body["synced_at"])
+        self.assertEqual(body["synced_at"], synced_at)
