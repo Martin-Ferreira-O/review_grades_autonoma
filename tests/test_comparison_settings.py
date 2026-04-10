@@ -1,9 +1,12 @@
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch, sentinel
 
 from uac_grades.infrastructure.config import Settings
 from uac_grades.interfaces.api import create_comparison_app
+from uac_grades.interfaces.cli import runner
 from uac_grades.interfaces.cli.runner import _build_parser
 
 
@@ -48,3 +51,15 @@ class ComparisonSettingsTests(unittest.TestCase):
 
     def test_api_exports_create_comparison_app(self) -> None:
         self.assertTrue(callable(create_comparison_app))
+
+    def test_run_comparison_server_uses_factory_and_comparison_bindings(self) -> None:
+        settings = SimpleNamespace(comparison=SimpleNamespace(host="127.0.0.2", port=9200))
+
+        with patch.object(runner.Settings, "load", return_value=settings) as load_settings:
+            with patch("uac_grades.interfaces.api.create_comparison_app", return_value=sentinel.app) as create_app:
+                with patch.object(runner.uvicorn, "run") as run_server:
+                    runner._run_comparison_server(host=None, port=None)
+
+        load_settings.assert_called_once_with()
+        create_app.assert_called_once_with(settings)
+        run_server.assert_called_once_with(sentinel.app, host="127.0.0.2", port=9200)
