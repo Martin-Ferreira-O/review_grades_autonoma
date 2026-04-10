@@ -3,6 +3,7 @@ import unittest
 from pathlib import Path
 
 from uac_grades.infrastructure.config import Settings
+from uac_grades.interfaces.api import create_comparison_app
 from uac_grades.interfaces.cli.runner import _build_parser
 
 
@@ -44,3 +45,6 @@ class ComparisonSettingsTests(unittest.TestCase):
         self.assertEqual(args.command, "serve-comparison")
         self.assertEqual(args.host, "0.0.0.0")
         self.assertEqual(args.port, 9100)
+
+    def test_api_exports_create_comparison_app(self) -> None:
+        self.assertTrue(callable(create_comparison_app))
