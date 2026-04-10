@@ -4,16 +4,53 @@ import json
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, Field
 
 from uac_grades.domain import ComparisonAssessmentPayload, ComparisonCoursePayload, ComparisonSyncPayload
 from uac_grades.infrastructure.config import Settings
 from uac_grades.infrastructure.persistence.comparison_sqlite_store import ComparisonSqliteStore
 
 
+class ComparisonAssessmentRequest(BaseModel):
+    assessment_name: str
+    canonical_assessment_key: str
+    weight: float
+    grade: float | None
+    grade_text: str
+    must_pass: bool
+    order_index: int
+
+
+class ComparisonCourseRequest(BaseModel):
+    canonical_course_key: str
+    course_code: str
+    course_title: str
+    term_code: str
+    term_label: str
+    section: str | None
+    status: str
+    current_grade: float | None
+    final_grade: float | None
+    comparison_grade: float | None
+    assessments: list[ComparisonAssessmentRequest] = Field(default_factory=list)
+
+
+class ComparisonSyncRequest(BaseModel):
+    participant_name: str
+    claim_code: str | None = None
+    sync_token: str | None = None
+    courses: list[ComparisonCourseRequest] = Field(default_factory=list)
+
+
 def _load_invites(path: Path) -> dict[str, str]:
     if not path.exists():
         return {}
-    raw = json.loads(path.read_text(encoding="utf-8"))
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as error:
+        raise RuntimeError(f"Invalid comparison invite file: {path}") from error
+    if not isinstance(raw, dict):
+        raise RuntimeError(f"Invalid comparison invite file: {path}")
     return {str(name): str(code) for name, code in raw.items()}
 
 
@@ -44,24 +81,39 @@ def create_comparison_app(settings: Settings | None = None) -> FastAPI:
         }
 
     @app.post("/api/comparison/sync")
-    async def sync(payload: dict) -> dict:
-        courses = []
-        for course in payload.get("courses", []):
-            assessments = [
-                ComparisonAssessmentPayload(**assessment)
-                for assessment in course.get("assessments", [])
-            ]
-            courses.append(
-                ComparisonCoursePayload(
-                    assessments=assessments,
-                    **{key: value for key, value in course.items() if key != "assessments"},
-                )
+    async def sync(payload: ComparisonSyncRequest) -> dict:
+        courses = [
+            ComparisonCoursePayload(
+                canonical_course_key=course.canonical_course_key,
+                course_code=course.course_code,
+                course_title=course.course_title,
+                term_code=course.term_code,
+                term_label=course.term_label,
+                section=course.section,
+                status=course.status,
+                current_grade=course.current_grade,
+                final_grade=course.final_grade,
+                comparison_grade=course.comparison_grade,
+                assessments=[
+                    ComparisonAssessmentPayload(
+                        assessment_name=assessment.assessment_name,
+                        canonical_assessment_key=assessment.canonical_assessment_key,
+                        weight=assessment.weight,
+                        grade=assessment.grade,
+                        grade_text=assessment.grade_text,
+                        must_pass=assessment.must_pass,
+                        order_index=assessment.order_index,
+                    )
+                    for assessment in course.assessments
+                ],
             )
+            for course in payload.courses
+        ]
 
         sync_payload = ComparisonSyncPayload(
-            participant_name=str(payload.get("participant_name") or "").strip(),
-            claim_code=payload.get("claim_code"),
-            sync_token=payload.get("sync_token"),
+            participant_name=payload.participant_name.strip(),
+            claim_code=payload.claim_code,
+            sync_token=payload.sync_token,
             courses=courses,
         )
 
@@ -69,22 +121,26 @@ def create_comparison_app(settings: Settings | None = None) -> FastAPI:
             issued_sync_token = None
             state = "updated"
             if sync_payload.claim_code and not sync_payload.sync_token:
-                issued_sync_token = store.claim_identity(
+                identity = store.claim_and_replace_snapshot(
                     display_name=sync_payload.participant_name,
                     claim_code=str(sync_payload.claim_code),
-                )
-                sync_payload = ComparisonSyncPayload(
-                    participant_name=sync_payload.participant_name,
-                    claim_code=None,
-                    sync_token=issued_sync_token,
                     courses=sync_payload.courses,
                 )
+                issued_sync_token = identity.sync_token
+                sync_payload = ComparisonSyncPayload(
+                    participant_name=identity.display_name,
+                    claim_code=None,
+                    sync_token=identity.sync_token,
+                    courses=sync_payload.courses,
+                )
+                synced_at = identity.last_synced_at
                 state = "linked"
-            store.replace_participant_snapshot(sync_payload)
-            synced_at = store.load_identity(
-                display_name=sync_payload.participant_name,
-                sync_token=str(sync_payload.sync_token),
-            ).last_synced_at
+            else:
+                store.replace_participant_snapshot(sync_payload)
+                synced_at = store.load_identity(
+                    display_name=sync_payload.participant_name,
+                    sync_token=str(sync_payload.sync_token),
+                ).last_synced_at
         except PermissionError as error:
             raise HTTPException(status_code=403, detail=str(error)) from error
 
