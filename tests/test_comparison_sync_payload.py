@@ -1,0 +1,61 @@
+import unittest
+
+from uac_grades.application.services.comparison_sync import build_comparison_sync_payload
+from uac_grades.domain.models import AcademicHistory, AcademicLevel, AcademicTerm, Course, GradeComponent, GradeSnapshot
+
+
+class ComparisonSyncPayloadTests(unittest.TestCase):
+    def test_builds_payload_with_course_and_assessments(self) -> None:
+        snapshot = GradeSnapshot(
+            term=AcademicTerm(code="202510", description="Primer Semestre - 2025"),
+            level=AcademicLevel(code="PR", description="Pregrado"),
+            courses=[
+                Course(
+                    course_id="1",
+                    nrc="1001",
+                    code="MAT101",
+                    section="1",
+                    title="Calculo I",
+                    grade="5.4",
+                    final_grade="5.4",
+                    midterm_grade="5.1",
+                    term_description="Primer Semestre - 2025",
+                    level_description="Pregrado",
+                    campus=None,
+                    study_path=None,
+                    attempted_hours=None,
+                    earned_hours=None,
+                    gpa_hours=None,
+                    quality_points=None,
+                    components_available=True,
+                    components=[
+                        GradeComponent(
+                            component_id="c1",
+                            name="Solemne 1",
+                            code=None,
+                            description=None,
+                            weight="30",
+                            score=None,
+                            total_score=None,
+                            score_text=None,
+                            grade="5.0",
+                            percentage=None,
+                            must_pass=False,
+                            stage=None,
+                            is_main_component=True,
+                            has_subcomponents=False,
+                        )
+                    ],
+                )
+            ],
+        )
+        history = AcademicHistory(snapshots=[snapshot])
+
+        payload = build_comparison_sync_payload(history, participant_name="Martin A.", claim_code="invite-123")
+
+        self.assertEqual(payload.participant_name, "Martin A.")
+        self.assertEqual(payload.claim_code, "invite-123")
+        self.assertEqual(len(payload.courses), 1)
+        self.assertEqual(payload.courses[0].canonical_course_key, "MAT101")
+        self.assertEqual(payload.courses[0].comparison_grade, 5.4)
+        self.assertEqual(payload.courses[0].assessments[0].canonical_assessment_key, "solemne-1")
