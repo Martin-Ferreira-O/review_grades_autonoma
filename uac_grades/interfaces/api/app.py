@@ -1,15 +1,18 @@
 from __future__ import annotations
 
+from dataclasses import asdict
 from pathlib import Path
+from urllib.parse import quote
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from uac_grades.application.services import build_dashboard_context
+from uac_grades.application.services import build_comparison_sync_payload, build_dashboard_context
 from uac_grades.infrastructure.config import Settings
-from uac_grades.infrastructure.persistence import SqliteHistoryStore
+from uac_grades.infrastructure.comparison import ComparisonSyncClient
+from uac_grades.infrastructure.persistence import ComparisonIdentityStore, SqliteHistoryStore
 
 TEMPLATES_DIR = Path(__file__).with_name("templates")
 STATIC_DIR = Path(__file__).with_name("static")
@@ -22,9 +25,17 @@ def _static_version() -> str:
     return max(mtimes)
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def create_app(
+    settings: Settings | None = None,
+    *,
+    history_store=None,
+    comparison_client=None,
+    identity_store=None,
+) -> FastAPI:
     settings = settings or Settings.load()
-    store = SqliteHistoryStore(settings.storage.sqlite_path)
+    store = history_store or SqliteHistoryStore(settings.storage.sqlite_path)
+    comparison_client = comparison_client or ComparisonSyncClient(base_url=settings.comparison.base_url)
+    identity_store = identity_store or ComparisonIdentityStore(settings.comparison.identity_path)
     templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
     app = FastAPI(title="UA Grades Dashboard")
@@ -33,6 +44,27 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.get("/health")
     async def health() -> dict:
         return {"status": "ok", "sqlite_path": str(store.database_path)}
+
+    @app.get("/comparison/sync", response_class=HTMLResponse)
+    async def comparison_sync_page(request: Request):
+        identity = identity_store.load()
+        comparison_dashboard_url = settings.comparison.base_url
+        if identity is not None:
+            comparison_dashboard_url = f"{settings.comparison.base_url}?participant={quote(identity.display_name)}"
+
+        return templates.TemplateResponse(
+            request=request,
+            name="comparison_sync.html",
+            context={
+                "request": request,
+                "display_name": identity.display_name if identity else "",
+                "is_linked": identity is not None,
+                "last_synced_at": identity.last_synced_at if identity else None,
+                "comparison_base_url": settings.comparison.base_url,
+                "comparison_dashboard_url": comparison_dashboard_url,
+                "static_version": _static_version(),
+            },
+        )
 
     @app.get("/api/history")
     async def api_history() -> dict:
@@ -54,6 +86,47 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "term_summaries": context["term_summaries"],
         }
 
+    @app.get("/api/comparison/link-status")
+    async def comparison_link_status() -> dict:
+        identity = identity_store.load()
+        return {
+            "linked": identity is not None,
+            "display_name": identity.display_name if identity else None,
+            "comparison_base_url": settings.comparison.base_url,
+            "last_synced_at": identity.last_synced_at if identity else None,
+        }
+
+    @app.post("/api/comparison/sync")
+    async def comparison_sync(payload: dict) -> dict:
+        history = store.load_latest()
+        if history is None:
+            raise HTTPException(status_code=404, detail="Aun no existe historial local para sincronizar")
+
+        identity = identity_store.load()
+        sync_payload = build_comparison_sync_payload(
+            history,
+            participant_name=str(payload.get("participant_name") or (identity.display_name if identity else "")).strip(),
+            claim_code=payload.get("claim_code") if identity is None else None,
+            sync_token=identity.sync_token if identity else None,
+        )
+        response = await comparison_client.sync(
+            {
+                "participant_name": sync_payload.participant_name,
+                "claim_code": sync_payload.claim_code,
+                "sync_token": sync_payload.sync_token,
+                "courses": [asdict(course) for course in sync_payload.courses],
+            }
+        )
+
+        issued_sync_token = response.get("issued_sync_token")
+        if issued_sync_token:
+            identity_store.save(
+                display_name=sync_payload.participant_name,
+                sync_token=str(issued_sync_token),
+                last_synced_at=response.get("synced_at"),
+            )
+        return response
+
     @app.get("/", response_class=HTMLResponse)
     async def dashboard(request: Request):
         history = store.load_latest()
@@ -62,6 +135,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "has_history": history is not None,
             "sqlite_path": str(store.database_path),
             "static_version": _static_version(),
+            "comparison_base_url": settings.comparison.base_url,
         }
 
         if history is not None:

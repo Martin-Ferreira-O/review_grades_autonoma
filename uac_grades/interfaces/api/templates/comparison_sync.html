@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sync de comparacion</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/styles.css') }}?v={{ static_version }}" />
+  </head>
+  <body>
+    <main class="page">
+      <section class="card section-card">
+        <div class="card-header">
+          <h1>Subir mis datos / Sync</h1>
+          <p>Placeholder minimo mientras se construye la UI completa de comparacion.</p>
+        </div>
+        <p>Estado: {% if is_linked %}vinculado{% else %}sin vincular{% endif %}</p>
+        <p>Nombre: {{ display_name or "-" }}</p>
+        <p>Ultima sincronizacion: {{ last_synced_at or "-" }}</p>
+        <p><a href="{{ comparison_dashboard_url }}">Ir a dashboard de comparacion</a></p>
+      </section>
+    </main>
+  </body>
+</html>
