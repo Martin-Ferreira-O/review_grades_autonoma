@@ -1,3 +1,4 @@
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -11,6 +12,30 @@ from uac_grades.interfaces.cli.runner import _build_parser
 
 
 class ComparisonSettingsTests(unittest.TestCase):
+    def test_load_allows_comparison_settings_without_banner_credentials(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            dotenv_path = root / ".env"
+            dotenv_path.write_text(
+                "\n".join(
+                    [
+                        "UA_COMPARISON_BASE_URL=http://127.0.0.1:9100",
+                        "UA_COMPARISON_WEB_HOST=0.0.0.0",
+                        "UA_COMPARISON_WEB_PORT=9100",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            with patch.dict(os.environ, {}, clear=True):
+                settings = Settings.load(dotenv_path, require_credentials=False)
+
+        self.assertEqual(settings.credentials.username, "")
+        self.assertEqual(settings.credentials.password, "")
+        self.assertEqual(settings.credentials.totp_secret, "")
+        self.assertEqual(settings.comparison.host, "0.0.0.0")
+        self.assertEqual(settings.comparison.port, 9100)
+
     def test_load_reads_comparison_settings(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
@@ -49,8 +74,20 @@ class ComparisonSettingsTests(unittest.TestCase):
         self.assertEqual(args.host, "0.0.0.0")
         self.assertEqual(args.port, 9100)
 
-    def test_api_exports_create_comparison_app(self) -> None:
-        self.assertTrue(callable(create_comparison_app))
+    def test_create_comparison_app_builds_dedicated_app(self) -> None:
+        settings = SimpleNamespace(
+            comparison=SimpleNamespace(
+                base_url="http://127.0.0.1:9100",
+                sqlite_path=Path("comparison.sqlite3"),
+            )
+        )
+
+        app = create_comparison_app(settings)
+        routes = {route.path for route in app.routes}
+
+        self.assertEqual(app.title, "UA Comparison Dashboard")
+        self.assertIn("/health", routes)
+        self.assertNotIn("/api/history", routes)
 
     def test_run_comparison_server_uses_factory_and_comparison_bindings(self) -> None:
         settings = SimpleNamespace(comparison=SimpleNamespace(host="127.0.0.2", port=9200))
@@ -60,6 +97,6 @@ class ComparisonSettingsTests(unittest.TestCase):
                 with patch.object(runner.uvicorn, "run") as run_server:
                     runner._run_comparison_server(host=None, port=None)
 
-        load_settings.assert_called_once_with()
+        load_settings.assert_called_once_with(require_credentials=False)
         create_app.assert_called_once_with(settings)
         run_server.assert_called_once_with(sentinel.app, host="127.0.0.2", port=9200)

@@ -89,7 +89,7 @@ def _run_server(host: str | None, port: int | None) -> None:
 
 
 def _run_comparison_server(host: str | None, port: int | None) -> None:
-    settings = Settings.load()
+    settings = Settings.load(require_credentials=False)
 
     from uac_grades.interfaces.api import create_comparison_app
 

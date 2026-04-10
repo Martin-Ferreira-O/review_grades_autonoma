@@ -27,6 +27,10 @@ def _require_env(name: str, legacy_name: str, dotenv_path: Path) -> str:
     return value
 
 
+def _optional_env(name: str, legacy_name: str) -> str:
+    return os.getenv(name, os.getenv(legacy_name, "")).strip()
+
+
 def _migrate_legacy_path(target: Path, legacy: Path) -> Path:
     if target.exists() or not legacy.exists():
         return target
@@ -101,7 +105,7 @@ class Settings:
     comparison: ComparisonSettings
 
     @classmethod
-    def load(cls, dotenv_path: Path | None = None) -> "Settings":
+    def load(cls, dotenv_path: Path | None = None, *, require_credentials: bool = True) -> "Settings":
         dotenv_path = dotenv_path or Path(".env")
         load_dotenv_file(dotenv_path)
 
@@ -137,9 +141,21 @@ class Settings:
         return cls(
             dotenv_path=dotenv_path,
             credentials=Credentials(
-                username=_require_env("UA_USUARIO", "UAC_USUARIO", dotenv_path),
-                password=_require_env("UA_CONTRASENA", "UAC_CONTRASENA", dotenv_path),
-                totp_secret=_require_env("UA_TOTP_SECRET", "UAC_TOTP_SECRET", dotenv_path),
+                username=(
+                    _require_env("UA_USUARIO", "UAC_USUARIO", dotenv_path)
+                    if require_credentials
+                    else _optional_env("UA_USUARIO", "UAC_USUARIO")
+                ),
+                password=(
+                    _require_env("UA_CONTRASENA", "UAC_CONTRASENA", dotenv_path)
+                    if require_credentials
+                    else _optional_env("UA_CONTRASENA", "UAC_CONTRASENA")
+                ),
+                totp_secret=(
+                    _require_env("UA_TOTP_SECRET", "UAC_TOTP_SECRET", dotenv_path)
+                    if require_credentials
+                    else _optional_env("UA_TOTP_SECRET", "UAC_TOTP_SECRET")
+                ),
             ),
             urls=UrlSettings(
                 sso=_env("UA_URL_SSO", "UAC_URL_SSO", "https://autoservicio8oci.uautonoma.cl/ssomanager/c/SSB"),
