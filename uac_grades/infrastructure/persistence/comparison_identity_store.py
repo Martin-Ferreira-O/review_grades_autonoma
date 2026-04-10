@@ -15,11 +15,21 @@ class ComparisonIdentityStore:
         if not self._path.exists():
             return None
 
-        payload = json.loads(self._path.read_text(encoding="utf-8"))
+        try:
+            payload = json.loads(self._path.read_text(encoding="utf-8"))
+            if not isinstance(payload, dict):
+                raise TypeError("comparison identity payload must be an object")
+
+            display_name = str(payload["display_name"])
+            sync_token = str(payload["sync_token"])
+            last_synced_at_value = payload.get("last_synced_at")
+        except (json.JSONDecodeError, KeyError, TypeError) as error:
+            raise RuntimeError(f"Invalid comparison identity data in {self._path}") from error
+
         return ComparisonIdentity(
-            display_name=str(payload["display_name"]),
-            sync_token=str(payload["sync_token"]),
-            last_synced_at=payload.get("last_synced_at"),
+            display_name=display_name,
+            sync_token=sync_token,
+            last_synced_at=None if last_synced_at_value is None else str(last_synced_at_value),
         )
 
     def save(self, *, display_name: str, sync_token: str, last_synced_at: str | None = None) -> None:
