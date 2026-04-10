@@ -10,3 +10,5 @@ debug_*.html
 data/
 *.sqlite3
 PLAN.md
+.venv
+.worktrees/
