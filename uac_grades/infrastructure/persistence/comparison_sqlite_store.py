@@ -93,12 +93,22 @@ class ComparisonSqliteStore:
 
     def sync_claim_invites(self, invites: dict[str, str]) -> None:
         with self._connect() as connection:
+            if invites:
+                placeholders = ", ".join("?" for _ in invites)
+                connection.execute(
+                    f"DELETE FROM claim_invites WHERE claimed_at IS NULL AND display_name NOT IN ({placeholders})",
+                    tuple(invites),
+                )
+            else:
+                connection.execute("DELETE FROM claim_invites WHERE claimed_at IS NULL")
+
             for display_name, claim_code in invites.items():
                 connection.execute(
                     """
                     INSERT INTO claim_invites (display_name, claim_code_hash, claimed_at, participant_id)
                     VALUES (?, ?, NULL, NULL)
                     ON CONFLICT(display_name) DO UPDATE SET claim_code_hash = excluded.claim_code_hash
+                    WHERE claim_invites.claimed_at IS NULL
                     """,
                     (display_name, _hash_token(claim_code)),
                 )
@@ -108,16 +118,20 @@ class ComparisonSqliteStore:
         claim_code_hash = _hash_token(claim_code)
         sync_token_hash = _hash_token(sync_token)
         with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
             invite = connection.execute(
                 "SELECT id, claimed_at FROM claim_invites WHERE display_name = ? AND claim_code_hash = ?",
                 (display_name, claim_code_hash),
             ).fetchone()
             if invite is None or invite["claimed_at"] is not None:
                 raise PermissionError("claim_invite_invalid")
-            cursor = connection.execute(
-                "INSERT INTO participants (display_name, sync_token_hash, claimed_at) VALUES (?, ?, datetime('now'))",
-                (display_name, sync_token_hash),
-            )
+            try:
+                cursor = connection.execute(
+                    "INSERT INTO participants (display_name, sync_token_hash, claimed_at) VALUES (?, ?, datetime('now'))",
+                    (display_name, sync_token_hash),
+                )
+            except sqlite3.IntegrityError as error:
+                raise PermissionError("claim_invite_invalid") from error
             connection.execute(
                 "UPDATE claim_invites SET claimed_at = datetime('now'), participant_id = ? WHERE id = ?",
                 (int(cursor.lastrowid), int(invite["id"])),
