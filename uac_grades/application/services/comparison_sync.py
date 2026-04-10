@@ -20,6 +20,11 @@ def _slug(value: str) -> str:
     return normalized.strip("-")
 
 
+def _canonical_course_key(course: Course) -> str:
+    code = re.sub(r"[^A-Za-z0-9]+", "", course.code.strip())
+    return code.upper() or _slug(course.title)
+
+
 def _course_status(course: Course) -> str:
     return "closed" if _parse_grade(course.final_grade) is not None else "in_progress"
 
@@ -28,13 +33,27 @@ def _comparison_grade(course: Course) -> float | None:
     return _parse_grade(course.final_grade) or _parse_grade(course.grade) or _parse_grade(course.midterm_grade)
 
 
+def _grade_text(component: GradeComponent) -> str:
+    return str(component.grade or component.score_text or component.percentage or "Pendiente")
+
+
+def _leaf_components(components: list[GradeComponent]) -> list[GradeComponent]:
+    leaves: list[GradeComponent] = []
+    for component in components:
+        if component.subcomponents:
+            leaves.extend(_leaf_components(component.subcomponents))
+            continue
+        leaves.append(component)
+    return leaves
+
+
 def _assessment_payload(component: GradeComponent, order_index: int) -> ComparisonAssessmentPayload:
     return ComparisonAssessmentPayload(
         assessment_name=component.name,
         canonical_assessment_key=_slug(component.name),
         weight=_parse_grade(component.weight) or 0.0,
         grade=_parse_grade(component.grade),
-        grade_text=str(component.grade or "Pendiente"),
+        grade_text=_grade_text(component),
         must_pass=component.must_pass,
         order_index=order_index,
     )
@@ -50,10 +69,13 @@ def build_comparison_sync_payload(
     courses: list[ComparisonCoursePayload] = []
     for snapshot in history.snapshots:
         for course in snapshot.courses:
-            assessments = [_assessment_payload(component, index) for index, component in enumerate(course.components, start=1)]
+            assessments = [
+                _assessment_payload(component, index)
+                for index, component in enumerate(_leaf_components(course.components), start=1)
+            ]
             courses.append(
                 ComparisonCoursePayload(
-                    canonical_course_key=course.code.strip() or _slug(course.title),
+                    canonical_course_key=_canonical_course_key(course),
                     course_code=course.code.strip(),
                     course_title=course.title.strip(),
                     term_code=snapshot.term.code,

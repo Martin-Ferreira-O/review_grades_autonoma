@@ -13,7 +13,7 @@ class ComparisonSyncPayloadTests(unittest.TestCase):
                 Course(
                     course_id="1",
                     nrc="1001",
-                    code="MAT101",
+                    code="MAT 101",
                     section="1",
                     title="Calculo I",
                     grade="5.4",
@@ -31,19 +31,53 @@ class ComparisonSyncPayloadTests(unittest.TestCase):
                     components=[
                         GradeComponent(
                             component_id="c1",
-                            name="Solemne 1",
+                            name="Solemnes",
                             code=None,
                             description=None,
                             weight="30",
                             score=None,
                             total_score=None,
                             score_text=None,
-                            grade="5.0",
+                            grade=None,
                             percentage=None,
                             must_pass=False,
                             stage=None,
                             is_main_component=True,
-                            has_subcomponents=False,
+                            has_subcomponents=True,
+                            subcomponents=[
+                                GradeComponent(
+                                    component_id="c1-1",
+                                    name="Solemne 1",
+                                    code=None,
+                                    description=None,
+                                    weight="15",
+                                    score=None,
+                                    total_score=None,
+                                    score_text="18/20",
+                                    grade=None,
+                                    percentage=None,
+                                    must_pass=False,
+                                    stage=None,
+                                    is_main_component=False,
+                                    has_subcomponents=False,
+                                ),
+                                GradeComponent(
+                                    component_id="c1-2",
+                                    name="Solemne 2",
+                                    code=None,
+                                    description=None,
+                                    weight="15",
+                                    score=None,
+                                    total_score=None,
+                                    score_text=None,
+                                    grade=None,
+                                    percentage="40%",
+                                    must_pass=False,
+                                    stage=None,
+                                    is_main_component=False,
+                                    has_subcomponents=False,
+                                ),
+                            ],
                         )
                     ],
                 )
@@ -58,4 +92,8 @@ class ComparisonSyncPayloadTests(unittest.TestCase):
         self.assertEqual(len(payload.courses), 1)
         self.assertEqual(payload.courses[0].canonical_course_key, "MAT101")
         self.assertEqual(payload.courses[0].comparison_grade, 5.4)
+        self.assertEqual(len(payload.courses[0].assessments), 2)
         self.assertEqual(payload.courses[0].assessments[0].canonical_assessment_key, "solemne-1")
+        self.assertEqual(payload.courses[0].assessments[0].grade_text, "18/20")
+        self.assertEqual(payload.courses[0].assessments[1].canonical_assessment_key, "solemne-2")
+        self.assertEqual(payload.courses[0].assessments[1].grade_text, "40%")
