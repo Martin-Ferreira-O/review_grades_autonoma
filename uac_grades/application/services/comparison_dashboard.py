@@ -40,16 +40,20 @@ def build_comparison_dashboard_context(rows: list[dict], *, highlight_participan
     by_assessment: defaultdict[tuple[str, str, str], list[float | None]] = defaultdict(list)
     course_labels: dict[str, str] = {}
     semester_labels: dict[str, str] = {}
+    seen_attempts: set[tuple[str, str, str, str]] = set()
 
     for row in rows:
         display_name = row["display_name"]
         course_key = row["canonical_course_key"]
         term_code = row["term_code"]
         grade = row.get("comparison_grade")
+        attempt_key = (display_name, course_key, term_code, row["term_label"])
 
-        by_course[(course_key, display_name)].append(grade)
-        by_semester[(term_code, display_name)].append(grade)
-        by_historical[display_name].append(grade)
+        if attempt_key not in seen_attempts:
+            seen_attempts.add(attempt_key)
+            by_course[(course_key, display_name)].append(grade)
+            by_semester[(term_code, display_name)].append(grade)
+            by_historical[display_name].append(grade)
         if row.get("assessment_name") and row.get("assessment_grade") is not None:
             by_assessment[(course_key, row["assessment_name"], display_name)].append(row["assessment_grade"])
         course_labels[course_key] = row["course_title"]
