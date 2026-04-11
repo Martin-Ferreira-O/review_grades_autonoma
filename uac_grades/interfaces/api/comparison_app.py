@@ -3,12 +3,26 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 
+from uac_grades.application.services.comparison_dashboard import build_comparison_dashboard_context
 from uac_grades.domain import ComparisonAssessmentPayload, ComparisonCoursePayload, ComparisonSyncPayload
 from uac_grades.infrastructure.config import Settings
 from uac_grades.infrastructure.persistence.comparison_sqlite_store import ComparisonSqliteStore
+
+TEMPLATES_DIR = Path(__file__).with_name("templates")
+STATIC_DIR = Path(__file__).with_name("static")
+
+
+def _static_version() -> str:
+    mtimes = [str(path.stat().st_mtime_ns) for path in STATIC_DIR.rglob("*") if path.is_file()]
+    if not mtimes:
+        return "dev"
+    return max(mtimes)
 
 
 class ComparisonAssessmentRequest(BaseModel):
@@ -63,15 +77,20 @@ def create_comparison_app(settings: Settings | None = None) -> FastAPI:
         settings.comparison.sqlite_path.parent / "comparison_claim_invites.json",
     )
     store.sync_claim_invites(_load_invites(invites_path))
+    templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
     app = FastAPI(title="UA Comparison Dashboard")
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
-    @app.get("/")
-    async def index() -> dict:
-        return {
-            "status": "comparison-ready",
-            "base_url": settings.comparison.base_url,
-        }
+    @app.get("/api/comparison/dashboard")
+    async def comparison_dashboard_data(participant: str | None = None) -> dict:
+        return build_comparison_dashboard_context(store.load_dashboard_rows(), highlight_participant=participant)
+
+    @app.get("/", response_class=HTMLResponse)
+    async def comparison_dashboard(request: Request, participant: str | None = None):
+        context = {"request": request, "static_version": _static_version()}
+        context.update(build_comparison_dashboard_context(store.load_dashboard_rows(), highlight_participant=participant))
+        return templates.TemplateResponse(request=request, name="comparison_dashboard.html", context=context)
 
     @app.get("/health")
     async def health() -> dict:

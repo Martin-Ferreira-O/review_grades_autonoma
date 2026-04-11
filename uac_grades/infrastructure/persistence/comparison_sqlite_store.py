@@ -295,3 +295,26 @@ class ComparisonSqliteStore:
             "INSERT INTO sync_runs (participant_id, received_at, status, payload_version, courses_count, assessments_count) VALUES (?, datetime('now'), 'ok', 'v1', ?, ?)",
             (participant_id, len(payload.courses), assessments_count),
         )
+
+    def load_dashboard_rows(self) -> list[dict]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT
+                    participants.display_name,
+                    courses.canonical_course_key,
+                    courses.course_title,
+                    participant_course_attempts.term_code,
+                    participant_course_attempts.term_label,
+                    participant_course_attempts.comparison_grade,
+                    participant_assessments.assessment_name,
+                    participant_assessments.grade AS assessment_grade
+                FROM participant_course_attempts
+                JOIN participants ON participants.id = participant_course_attempts.participant_id
+                JOIN courses ON courses.id = participant_course_attempts.course_id
+                LEFT JOIN participant_assessments ON participant_assessments.course_attempt_id = participant_course_attempts.id
+                WHERE participants.is_active = 1
+                ORDER BY participants.display_name, participant_course_attempts.term_code DESC
+                """
+            ).fetchall()
+        return [dict(row) for row in rows]

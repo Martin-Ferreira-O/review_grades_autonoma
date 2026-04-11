@@ -1,0 +1,107 @@
+from __future__ import annotations
+
+from collections import defaultdict
+
+
+def _average(values: list[float | None]) -> float | None:
+    valid = [value for value in values if value is not None]
+    if not valid:
+        return None
+    return round(sum(valid) / len(valid), 2)
+
+
+def _rank_with_points(entries: dict[str, list[float | None]]) -> list[dict]:
+    ranking = [
+        {
+            "display_name": display_name,
+            "average": _average(grades),
+            "wins": 0,
+            "podiums": 0,
+            "points": 0,
+        }
+        for display_name, grades in entries.items()
+    ]
+    ranking.sort(key=lambda item: (item["average"] is not None, item["average"] or -1), reverse=True)
+    leader_average = ranking[0]["average"] if ranking else None
+    for index, row in enumerate(ranking[:3]):
+        row["podiums"] += 1
+        row["points"] += [3, 2, 1][index]
+        if index == 0:
+            row["wins"] += 1
+    for row in ranking:
+        row["gap_to_leader"] = 0.0 if leader_average is None or row["average"] is None else round(leader_average - row["average"], 2)
+    return ranking
+
+
+def build_comparison_dashboard_context(rows: list[dict], *, highlight_participant: str | None = None) -> dict:
+    by_course: defaultdict[tuple[str, str], list[float | None]] = defaultdict(list)
+    by_semester: defaultdict[tuple[str, str], list[float | None]] = defaultdict(list)
+    by_historical: defaultdict[str, list[float | None]] = defaultdict(list)
+    by_assessment: defaultdict[tuple[str, str, str], list[float | None]] = defaultdict(list)
+    course_labels: dict[str, str] = {}
+    semester_labels: dict[str, str] = {}
+
+    for row in rows:
+        display_name = row["display_name"]
+        course_key = row["canonical_course_key"]
+        term_code = row["term_code"]
+        grade = row.get("comparison_grade")
+
+        by_course[(course_key, display_name)].append(grade)
+        by_semester[(term_code, display_name)].append(grade)
+        by_historical[display_name].append(grade)
+        if row.get("assessment_name") and row.get("assessment_grade") is not None:
+            by_assessment[(course_key, row["assessment_name"], display_name)].append(row["assessment_grade"])
+        course_labels[course_key] = row["course_title"]
+        semester_labels[term_code] = row["term_label"]
+
+    selected_course = next(iter(course_labels), None)
+    selected_semester = next(iter(semester_labels), None)
+    selected_assessment = next(
+        (assessment_name for course_key, assessment_name, _display_name in by_assessment if course_key == selected_course),
+        None,
+    )
+
+    course_ranking = _rank_with_points(
+        {display_name: grades for (course_key, display_name), grades in by_course.items() if course_key == selected_course}
+    )
+    assessment_ranking = _rank_with_points(
+        {
+            display_name: grades
+            for (course_key, assessment_name, display_name), grades in by_assessment.items()
+            if course_key == selected_course and assessment_name == selected_assessment
+        }
+    )
+    semester_ranking = _rank_with_points(
+        {display_name: grades for (term_code, display_name), grades in by_semester.items() if term_code == selected_semester}
+    )
+    historical_ranking = _rank_with_points(dict(by_historical))
+    selected_row = next((row for row in historical_ranking if row["display_name"] == highlight_participant), None)
+    group_average = _average([row["average"] for row in historical_ranking if row["average"] is not None])
+
+    return {
+        "summary": {
+            "leaders": [row["display_name"] for row in historical_ranking[:3]],
+            "participants": len(by_historical),
+            "group_average": group_average,
+            "leader_points": historical_ranking[0]["points"] if historical_ranking else 0,
+            "selected_participant": selected_row,
+        },
+        "tabs": {
+            "course": {
+                "selected": selected_course,
+                "options": [{"value": key, "label": label} for key, label in course_labels.items()],
+                "ranking": course_ranking,
+                "selected_assessment": selected_assessment,
+                "assessment_ranking": assessment_ranking,
+            },
+            "semester": {
+                "selected": selected_semester,
+                "options": [{"value": key, "label": label} for key, label in semester_labels.items()],
+                "ranking": semester_ranking,
+            },
+            "historical": {
+                "ranking": historical_ranking,
+            },
+        },
+    }
