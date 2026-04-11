@@ -12,3 +12,8 @@ data/
 PLAN.md
 .venv
 .worktrees/
+.agent
+.opencode
+.superpowers
+opencode.json
+docs
