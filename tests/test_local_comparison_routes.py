@@ -51,6 +51,12 @@ class _FakeFailingComparisonClient:
         raise httpx.HTTPStatusError("forbidden", request=request, response=response)
 
 
+class _FakeUnavailableComparisonClient:
+    async def sync(self, payload: dict) -> dict:
+        request = httpx.Request("POST", "http://127.0.0.1:9100/api/comparison/sync", json=payload)
+        raise httpx.ConnectError("connection failed", request=request)
+
+
 class _FakeIdentityStore:
     def __init__(self):
         self.identity = None
@@ -201,6 +207,39 @@ class LocalComparisonRoutesTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 403)
         self.assertEqual(response.json(), {"detail": "invite code rejected"})
+
+    def test_local_sync_endpoint_returns_bad_gateway_when_service_is_unavailable(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            dotenv_path = root / ".env"
+            dotenv_path.write_text(
+                "\n".join(
+                    [
+                        "UA_USUARIO=test@cloud.uautonoma.cl",
+                        "UA_CONTRASENA=secret",
+                        "UA_TOTP_SECRET=totp-secret",
+                        "UA_COMPARISON_BASE_URL=http://127.0.0.1:9100",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            settings = Settings.load(dotenv_path)
+            client = TestClient(
+                create_app(
+                    settings,
+                    history_store=_FakeHistoryStore(AcademicHistory(snapshots=[])),
+                    comparison_client=_FakeUnavailableComparisonClient(),
+                    identity_store=_FakeIdentityStore(),
+                )
+            )
+
+            response = client.post(
+                "/api/comparison/sync",
+                json={"participant_name": "Martin A.", "claim_code": "invite-123"},
+            )
+
+        self.assertEqual(response.status_code, 502)
+        self.assertEqual(response.json(), {"detail": "No se pudo conectar con el servicio de comparacion"})
 
     def test_comparison_link_status_reflects_saved_identity(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
