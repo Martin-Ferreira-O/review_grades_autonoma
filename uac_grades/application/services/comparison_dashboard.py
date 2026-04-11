@@ -3,6 +3,15 @@ from __future__ import annotations
 from collections import defaultdict
 
 
+def _select_option(options: list[dict[str, str]], requested_value: str | None) -> str | None:
+    values = {option["value"] for option in options}
+    if requested_value in values:
+        return requested_value
+    if not options:
+        return None
+    return options[0]["value"]
+
+
 def _average(values: list[float | None]) -> float | None:
     valid = [value for value in values if value is not None]
     if not valid:
@@ -33,7 +42,14 @@ def _rank_with_points(entries: dict[str, list[float | None]]) -> list[dict]:
     return ranking
 
 
-def build_comparison_dashboard_context(rows: list[dict], *, highlight_participant: str | None = None) -> dict:
+def build_comparison_dashboard_context(
+    rows: list[dict],
+    *,
+    highlight_participant: str | None = None,
+    selected_course: str | None = None,
+    selected_semester: str | None = None,
+    selected_assessment: str | None = None,
+) -> dict:
     by_course: defaultdict[tuple[str, str], list[float | None]] = defaultdict(list)
     by_semester: defaultdict[tuple[str, str], list[float | None]] = defaultdict(list)
     by_historical: defaultdict[str, list[float | None]] = defaultdict(list)
@@ -59,12 +75,23 @@ def build_comparison_dashboard_context(rows: list[dict], *, highlight_participan
         course_labels[course_key] = row["course_title"]
         semester_labels[term_code] = row["term_label"]
 
-    selected_course = next(iter(course_labels), None)
-    selected_semester = next(iter(semester_labels), None)
-    selected_assessment = next(
-        (assessment_name for course_key, assessment_name, _display_name in by_assessment if course_key == selected_course),
-        None,
-    )
+    course_options = [
+        {"value": key, "label": label}
+        for key, label in sorted(course_labels.items(), key=lambda item: (item[1], item[0]))
+    ]
+    semester_options = [
+        {"value": key, "label": label}
+        for key, label in sorted(semester_labels.items(), key=lambda item: item[0], reverse=True)
+    ]
+    selected_course = _select_option(course_options, selected_course)
+    selected_semester = _select_option(semester_options, selected_semester)
+    assessment_options = [
+        {"value": assessment_name, "label": assessment_name}
+        for assessment_name in sorted(
+            {assessment_name for course_key, assessment_name, _display_name in by_assessment if course_key == selected_course}
+        )
+    ]
+    selected_assessment = _select_option(assessment_options, selected_assessment)
 
     course_ranking = _rank_with_points(
         {display_name: grades for (course_key, display_name), grades in by_course.items() if course_key == selected_course}
@@ -94,14 +121,15 @@ def build_comparison_dashboard_context(rows: list[dict], *, highlight_participan
         "tabs": {
             "course": {
                 "selected": selected_course,
-                "options": [{"value": key, "label": label} for key, label in course_labels.items()],
+                "options": course_options,
                 "ranking": course_ranking,
                 "selected_assessment": selected_assessment,
+                "assessment_options": assessment_options,
                 "assessment_ranking": assessment_ranking,
             },
             "semester": {
                 "selected": selected_semester,
-                "options": [{"value": key, "label": label} for key, label in semester_labels.items()],
+                "options": semester_options,
                 "ranking": semester_ranking,
             },
             "historical": {

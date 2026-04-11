@@ -116,3 +116,97 @@ class ComparisonSyncApiTests(unittest.TestCase):
 
                 with self.assertRaisesRegex(RuntimeError, "comparison invite"):
                     create_comparison_app(settings)
+
+    def test_dashboard_data_endpoint_supports_query_selectors(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with patch.dict(os.environ, {}, clear=True):
+                root = Path(temp_dir)
+                settings = self._write_settings(root, invites_contents=json.dumps({"Martin A.": "invite-123"}))
+                client = TestClient(create_comparison_app(settings))
+
+                claim_response = client.post(
+                    "/api/comparison/sync",
+                    json={
+                        "participant_name": "Martin A.",
+                        "claim_code": "invite-123",
+                        "courses": [
+                            {
+                                "canonical_course_key": "PHY101",
+                                "course_code": "PHY101",
+                                "course_title": "Fisica I",
+                                "term_code": "202410",
+                                "term_label": "Segundo Semestre - 2024",
+                                "section": "1",
+                                "status": "closed",
+                                "current_grade": 4.0,
+                                "final_grade": 4.0,
+                                "comparison_grade": 4.0,
+                                "assessments": [
+                                    {
+                                        "assessment_name": "Laboratorio",
+                                        "canonical_assessment_key": "lab-1",
+                                        "weight": 30.0,
+                                        "grade": 4.5,
+                                        "grade_text": "4.5",
+                                        "must_pass": False,
+                                        "order_index": 1,
+                                    }
+                                ],
+                            },
+                            {
+                                "canonical_course_key": "MAT101",
+                                "course_code": "MAT101",
+                                "course_title": "Calculo I",
+                                "term_code": "202510",
+                                "term_label": "Primer Semestre - 2025",
+                                "section": "1",
+                                "status": "closed",
+                                "current_grade": 6.0,
+                                "final_grade": 6.0,
+                                "comparison_grade": 6.0,
+                                "assessments": [
+                                    {
+                                        "assessment_name": "Solemne 2",
+                                        "canonical_assessment_key": "solemne-2",
+                                        "weight": 30.0,
+                                        "grade": 5.8,
+                                        "grade_text": "5.8",
+                                        "must_pass": False,
+                                        "order_index": 2,
+                                    },
+                                    {
+                                        "assessment_name": "Solemne 1",
+                                        "canonical_assessment_key": "solemne-1",
+                                        "weight": 30.0,
+                                        "grade": 6.2,
+                                        "grade_text": "6.2",
+                                        "must_pass": False,
+                                        "order_index": 1,
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                )
+
+                self.assertEqual(claim_response.status_code, 200)
+
+                default_response = client.get("/api/comparison/dashboard")
+                selected_response = client.get(
+                    "/api/comparison/dashboard",
+                    params={
+                        "participant": "Martin A.",
+                        "selected_course": "PHY101",
+                        "selected_semester": "202410",
+                        "selected_assessment": "Laboratorio",
+                    },
+                )
+
+        self.assertEqual(default_response.status_code, 200)
+        self.assertEqual(default_response.json()["tabs"]["course"]["selected"], "MAT101")
+        self.assertEqual(default_response.json()["tabs"]["semester"]["selected"], "202510")
+        self.assertEqual(default_response.json()["tabs"]["course"]["selected_assessment"], "Solemne 1")
+        self.assertEqual(selected_response.status_code, 200)
+        self.assertEqual(selected_response.json()["tabs"]["course"]["selected"], "PHY101")
+        self.assertEqual(selected_response.json()["tabs"]["semester"]["selected"], "202410")
+        self.assertEqual(selected_response.json()["tabs"]["course"]["selected_assessment"], "Laboratorio")

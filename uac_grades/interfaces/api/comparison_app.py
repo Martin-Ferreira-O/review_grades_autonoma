@@ -83,13 +83,38 @@ def create_comparison_app(settings: Settings | None = None) -> FastAPI:
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
     @app.get("/api/comparison/dashboard")
-    async def comparison_dashboard_data(participant: str | None = None) -> dict:
-        return build_comparison_dashboard_context(store.load_dashboard_rows(), highlight_participant=participant)
+    async def comparison_dashboard_data(
+        participant: str | None = None,
+        selected_course: str | None = None,
+        selected_semester: str | None = None,
+        selected_assessment: str | None = None,
+    ) -> dict:
+        return build_comparison_dashboard_context(
+            store.load_dashboard_rows(),
+            highlight_participant=participant,
+            selected_course=selected_course,
+            selected_semester=selected_semester,
+            selected_assessment=selected_assessment,
+        )
 
     @app.get("/", response_class=HTMLResponse)
-    async def comparison_dashboard(request: Request, participant: str | None = None):
+    async def comparison_dashboard(
+        request: Request,
+        participant: str | None = None,
+        selected_course: str | None = None,
+        selected_semester: str | None = None,
+        selected_assessment: str | None = None,
+    ):
         context = {"request": request, "static_version": _static_version()}
-        context.update(build_comparison_dashboard_context(store.load_dashboard_rows(), highlight_participant=participant))
+        context.update(
+            build_comparison_dashboard_context(
+                store.load_dashboard_rows(),
+                highlight_participant=participant,
+                selected_course=selected_course,
+                selected_semester=selected_semester,
+                selected_assessment=selected_assessment,
+            )
+        )
         return templates.TemplateResponse(request=request, name="comparison_dashboard.html", context=context)
 
     @app.get("/health")
