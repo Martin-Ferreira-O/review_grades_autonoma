@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap");
+
 :root {
   color-scheme: dark;
   --bg: #09111f;
@@ -6,7 +8,9 @@
   --line: rgba(148, 163, 184, 0.18);
   --text: #e5eefb;
   --muted: #99a9c2;
-  --accent: #60a5fa;
+  --accent: #3b82f6;
+  --accent-strong: #1e40af;
+  --cta: #f59e0b;
   --accent-2: #22c55e;
   --danger: #f97316;
   --warning: #facc15;
@@ -18,15 +22,52 @@
 
 body {
   margin: 0;
-  font-family: Inter, Arial, sans-serif;
+  font-family: "Fira Sans", Arial, sans-serif;
   background:
     radial-gradient(circle at top right, rgba(96, 165, 250, 0.18), transparent 28%),
     linear-gradient(180deg, #09111f 0%, #060c17 100%);
   color: var(--text);
 }
 
+a,
+button,
+input,
+select,
+summary {
+  transition:
+    background-color 180ms ease-out,
+    border-color 180ms ease-out,
+    color 180ms ease-out,
+    box-shadow 180ms ease-out,
+    transform 180ms ease-out;
+}
+
+a,
+button,
+summary {
+  cursor: pointer;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+a:hover {
+  color: #ffffff;
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+summary:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.38);
+}
+
 code {
-  font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+  font-family: "Fira Code", "SFMono-Regular", Consolas, monospace;
   background: rgba(15, 23, 42, 0.7);
   padding: 0.2rem 0.45rem;
   border-radius: 0.45rem;
@@ -123,6 +164,14 @@ code {
   padding: 1rem 1.1rem;
 }
 
+.subtle-card {
+  padding: 1rem 1.1rem;
+  margin-top: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: linear-gradient(180deg, rgba(18, 36, 68, 0.85), rgba(11, 24, 45, 0.85));
+}
+
 .metric-card strong {
   display: block;
   font-size: 2rem;
@@ -158,6 +207,62 @@ code {
 
 .card-header {
   margin-bottom: 1rem;
+}
+
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+
+.primary-action,
+.secondary-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.9rem;
+  border: 1px solid transparent;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.primary-action {
+  background: linear-gradient(135deg, var(--accent-strong), var(--accent));
+  color: #f8fbff;
+  box-shadow: 0 12px 26px rgba(30, 64, 175, 0.28);
+}
+
+.primary-action:hover,
+.primary-action:focus-visible {
+  transform: translateY(-1px);
+}
+
+.secondary-action {
+  border-color: rgba(59, 130, 246, 0.32);
+  background: rgba(10, 21, 40, 0.68);
+  color: var(--text);
+}
+
+.secondary-action:hover,
+.secondary-action:focus-visible {
+  border-color: rgba(245, 158, 11, 0.52);
+  color: #ffffff;
+}
+
+.comparison-entry-actions .primary-action {
+  min-width: 15rem;
+}
+
+.comparison-entry-actions .secondary-action {
+  min-width: 12rem;
+}
+
+.comparison-entry-note strong {
+  display: block;
+  margin-top: 0.35rem;
 }
 
 .section-card {
@@ -344,6 +449,15 @@ canvas {
     padding: 1rem 0.75rem 3rem;
   }
 
+  .hero-actions {
+    flex-direction: column;
+  }
+
+  .primary-action,
+  .secondary-action {
+    width: 100%;
+  }
+
   .term-panel {
     flex-direction: column;
     align-items: flex-start;
@@ -352,5 +466,16 @@ canvas {
   .course-detail summary {
     flex-direction: column;
     align-items: flex-start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

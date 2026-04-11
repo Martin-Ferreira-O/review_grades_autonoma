@@ -16,11 +16,17 @@
             Historial consolidado desde Banner con SQLite local para consulta rapida y una vista
             pensada para detectar fortalezas, alertas y evolucion por semestre.
           </p>
-          <p>
-            <a href="{{ comparison_base_url }}">Ir a dashboard de comparacion</a>
-            ·
-            <a href="/comparison/sync">Subir mis datos / Sync</a>
-          </p>
+          <div class="hero-actions comparison-entry-actions">
+            <a class="primary-action" href="{{ comparison_base_url }}">Ir a dashboard de comparacion</a>
+            <a class="secondary-action" href="/comparison/sync">Subir mis datos / Sync</a>
+          </div>
+          <div class="comparison-entry-note card subtle-card">
+            <div>
+              <span class="meta-label">Comparacion remota</span>
+              <strong>Compara tu promedio por ramo, semestre e historico con el grupo sincronizado.</strong>
+            </div>
+            <small class="meta-detail">Sincroniza desde este dashboard local y luego abre la vista remota con tus filtros.</small>
+          </div>
         </div>
         <div class="hero-meta">
           <div class="meta-card">

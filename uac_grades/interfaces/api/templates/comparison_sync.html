@@ -5,19 +5,126 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Sync de comparacion</title>
     <link rel="stylesheet" href="{{ url_for('static', path='/styles.css') }}?v={{ static_version }}" />
+    <link rel="stylesheet" href="{{ url_for('static', path='/comparison.css') }}?v={{ static_version }}" />
   </head>
   <body>
-    <main class="page">
-      <section class="card section-card">
-        <div class="card-header">
+    <main class="page comparison-page comparison-sync-page">
+      <section class="comparison-hero comparison-shell-card">
+        <div>
+          <p class="eyebrow">UA Grades Comparison</p>
           <h1>Subir mis datos / Sync</h1>
-          <p>Placeholder minimo mientras se construye la UI completa de comparacion.</p>
+          <p class="comparison-lead">
+            Sincroniza tu historial local con el tablero remoto para compararte por ramo, semestre y rendimiento historico.
+          </p>
+          <div class="comparison-hero-actions">
+            <a class="primary-action" href="{{ comparison_dashboard_url }}">Ir a dashboard de comparacion</a>
+            <a class="secondary-action" href="/">Volver al dashboard local</a>
+          </div>
         </div>
-        <p>Estado: {% if is_linked %}vinculado{% else %}sin vincular{% endif %}</p>
-        <p>Nombre: {{ display_name or "-" }}</p>
-        <p>Ultima sincronizacion: {{ last_synced_at or "-" }}</p>
-        <p><a href="{{ comparison_dashboard_url }}">Ir a dashboard de comparacion</a></p>
+        <div class="comparison-summary-grid">
+          <article class="comparison-summary-card accent">
+            <span class="comparison-summary-label">Estado</span>
+            <strong id="sync-link-state">{% if is_linked %}Vinculado{% else %}Pendiente de vinculacion{% endif %}</strong>
+            <small>{% if is_linked %}Ya existe un token local guardado.{% else %}Necesitas nombre y codigo de invitacion para el primer sync.{% endif %}</small>
+          </article>
+          <article class="comparison-summary-card">
+            <span class="comparison-summary-label">Participante</span>
+            <strong id="sync-display-name">{{ display_name or "Sin registrar" }}</strong>
+            <small>Este nombre se usara para resaltar tus posiciones en el tablero remoto.</small>
+          </article>
+          <article class="comparison-summary-card">
+            <span class="comparison-summary-label">Ultima sincronizacion</span>
+            <strong id="sync-last-synced">{{ last_synced_at or "Aun sin sincronizacion" }}</strong>
+            <small>El historial local se envia completo en cada actualizacion.</small>
+          </article>
+          <article class="comparison-summary-card muted">
+            <span class="comparison-summary-label">Servicio remoto</span>
+            <strong>{{ comparison_base_url }}</strong>
+            <small>Abre el dashboard para revisar comparativas despues del sync.</small>
+          </article>
+        </div>
+      </section>
+
+      <section class="comparison-grid comparison-sync-grid">
+        <article class="comparison-shell-card section-card">
+          <div class="comparison-section-heading">
+            <h2>Formulario de sincronizacion</h2>
+            <p>
+              El primer envio reclama tu identidad con un codigo. Los siguientes sync usan tu vinculacion guardada y solo refrescan datos.
+            </p>
+          </div>
+
+          <form
+            action="/api/comparison/sync"
+            method="post"
+            class="comparison-form"
+            data-sync-form
+            data-linked="{{ 'true' if is_linked else 'false' }}"
+            data-dashboard-url="{{ comparison_dashboard_url }}"
+          >
+            <div class="comparison-form-grid">
+              <label class="comparison-field">
+                <span>Nombre visible</span>
+                <input
+                  type="text"
+                  name="participant_name"
+                  value="{{ display_name }}"
+                  placeholder="Ej. Martin A."
+                  {% if is_linked %}readonly{% else %}required{% endif %}
+                />
+              </label>
+
+              <label class="comparison-field {% if is_linked %}is-disabled{% endif %}">
+                <span>Codigo de invitacion</span>
+                <input
+                  type="text"
+                  name="claim_code"
+                  value=""
+                  placeholder="invite-123"
+                  {% if is_linked %}disabled{% else %}required{% endif %}
+                />
+                <small>{% if is_linked %}Tu cuenta ya esta vinculada. No necesitas volver a reclamarla.{% else %}Solo se usa en la primera sincronizacion.{% endif %}</small>
+              </label>
+            </div>
+
+            <div class="comparison-form-actions">
+              <button class="primary-action" type="submit" data-sync-submit>
+                {% if is_linked %}Actualizar comparacion{% else %}Vincular y sincronizar{% endif %}
+              </button>
+              <a class="secondary-action" href="{{ comparison_dashboard_url }}">Abrir tablero remoto</a>
+            </div>
+
+            <div class="comparison-feedback" data-sync-feedback role="status" aria-live="polite">
+              {% if is_linked %}
+              Listo para refrescar tu snapshot remoto con el historial local actual.
+              {% else %}
+              Aun no hay datos sincronizados. Completa los campos para publicar tu primer snapshot.
+              {% endif %}
+            </div>
+          </form>
+        </article>
+
+        <aside class="comparison-shell-card section-card comparison-side-panel">
+          <div class="comparison-section-heading compact">
+            <h2>Que sucede en cada envio</h2>
+            <p>El flujo local prepara un payload normalizado y actualiza tu snapshot remoto completo.</p>
+          </div>
+          <ol class="comparison-checklist">
+            <li>Se toma el historial academico almacenado en SQLite local.</li>
+            <li>Se normalizan ramos, semestres y evaluaciones para comparacion.</li>
+            <li>El servicio remoto recalcula ranking por ramo, semestre e historico.</li>
+          </ol>
+
+          <div class="comparison-note-block">
+            <span class="comparison-summary-label">Consejo</span>
+            <p>
+              Si ya estas vinculado, conserva el mismo nombre visible para que tu resaltado en el dashboard remoto siga siendo consistente.
+            </p>
+          </div>
+        </aside>
       </section>
     </main>
+
+    <script src="{{ url_for('static', path='/comparison.js') }}?v={{ static_version }}"></script>
   </body>
 </html>
