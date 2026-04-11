@@ -119,10 +119,11 @@ def create_app(
         )
 
         issued_sync_token = response.get("issued_sync_token")
-        if issued_sync_token:
+        sync_token_to_save = issued_sync_token or (identity.sync_token if identity else None)
+        if sync_token_to_save:
             identity_store.save(
                 display_name=sync_payload.participant_name,
-                sync_token=str(issued_sync_token),
+                sync_token=str(sync_token_to_save),
                 last_synced_at=response.get("synced_at"),
             )
         return response

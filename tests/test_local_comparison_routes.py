@@ -31,6 +31,18 @@ class _FakeComparisonClient:
         }
 
 
+class _FakeRefreshComparisonClient:
+    async def sync(self, payload: dict) -> dict:
+        return {
+            "participant_name": payload["participant_name"],
+            "state": "updated",
+            "issued_sync_token": None,
+            "synced_courses": len(payload["courses"]),
+            "synced_assessments": 0,
+            "synced_at": "2026-04-10T09:30:00+00:00",
+        }
+
+
 class _FakeIdentityStore:
     def __init__(self):
         self.identity = None
@@ -111,3 +123,40 @@ class LocalComparisonRoutesTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(identity_store.load().sync_token, "issued-token")
+
+    def test_local_sync_endpoint_refreshes_last_synced_at_for_linked_user(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            dotenv_path = root / ".env"
+            dotenv_path.write_text(
+                "\n".join(
+                    [
+                        "UA_USUARIO=test@cloud.uautonoma.cl",
+                        "UA_CONTRASENA=secret",
+                        "UA_TOTP_SECRET=totp-secret",
+                        "UA_COMPARISON_BASE_URL=http://127.0.0.1:9100",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            settings = Settings.load(dotenv_path)
+            identity_store = _FakeIdentityStore()
+            identity_store.save(
+                display_name="Martin A.",
+                sync_token="existing-token",
+                last_synced_at="2026-04-08T12:00:00+00:00",
+            )
+            client = TestClient(
+                create_app(
+                    settings,
+                    history_store=_FakeHistoryStore(AcademicHistory(snapshots=[])),
+                    comparison_client=_FakeRefreshComparisonClient(),
+                    identity_store=identity_store,
+                )
+            )
+
+            response = client.post("/api/comparison/sync", json={"participant_name": "Ignored value"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(identity_store.load().sync_token, "existing-token")
+        self.assertEqual(identity_store.load().last_synced_at, "2026-04-10T09:30:00+00:00")
