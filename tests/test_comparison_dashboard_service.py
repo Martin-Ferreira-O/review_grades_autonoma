@@ -179,6 +179,40 @@ class ComparisonDashboardServiceTests(unittest.TestCase):
         self.assertEqual(selected_context["tabs"]["course"]["assessment_ranking"][0]["average"], 4.5)
         self.assertEqual(selected_context["tabs"]["semester"]["selected"], "202410")
 
+    def test_defaults_assessment_selection_by_order_index(self) -> None:
+        rows = [
+            {
+                "display_name": "Martin A.",
+                "canonical_course_key": "MAT101",
+                "course_title": "Calculo I",
+                "term_code": "202510",
+                "term_label": "Primer Semestre - 2025",
+                "comparison_grade": 6.0,
+                "assessment_name": "Beta",
+                "assessment_grade": 5.8,
+                "assessment_order_index": 1,
+            },
+            {
+                "display_name": "Martin A.",
+                "canonical_course_key": "MAT101",
+                "course_title": "Calculo I",
+                "term_code": "202510",
+                "term_label": "Primer Semestre - 2025",
+                "comparison_grade": 6.0,
+                "assessment_name": "Alpha",
+                "assessment_grade": 6.2,
+                "assessment_order_index": 2,
+            },
+        ]
+
+        context = build_comparison_dashboard_context(rows)
+
+        self.assertEqual(context["tabs"]["course"]["selected_assessment"], "Beta")
+        self.assertEqual(context["tabs"]["course"]["assessment_options"], [
+            {"value": "Beta", "label": "Beta"},
+            {"value": "Alpha", "label": "Alpha"},
+        ])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -308,7 +308,8 @@ class ComparisonSqliteStore:
                     participant_course_attempts.term_label,
                     participant_course_attempts.comparison_grade,
                     participant_assessments.assessment_name,
-                    participant_assessments.grade AS assessment_grade
+                    participant_assessments.grade AS assessment_grade,
+                    participant_assessments.order_index AS assessment_order_index
                 FROM participant_course_attempts
                 JOIN participants ON participants.id = participant_course_attempts.participant_id
                 JOIN courses ON courses.id = participant_course_attempts.course_id

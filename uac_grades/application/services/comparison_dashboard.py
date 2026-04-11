@@ -54,6 +54,7 @@ def build_comparison_dashboard_context(
     by_semester: defaultdict[tuple[str, str], list[float | None]] = defaultdict(list)
     by_historical: defaultdict[str, list[float | None]] = defaultdict(list)
     by_assessment: defaultdict[tuple[str, str, str], list[float | None]] = defaultdict(list)
+    assessment_order: dict[tuple[str, str], tuple[int, str]] = {}
     course_labels: dict[str, str] = {}
     semester_labels: dict[str, str] = {}
     seen_attempts: set[tuple[str, str, str, str]] = set()
@@ -71,7 +72,13 @@ def build_comparison_dashboard_context(
             by_semester[(term_code, display_name)].append(grade)
             by_historical[display_name].append(grade)
         if row.get("assessment_name") and row.get("assessment_grade") is not None:
-            by_assessment[(course_key, row["assessment_name"], display_name)].append(row["assessment_grade"])
+            assessment_name = row["assessment_name"]
+            by_assessment[(course_key, assessment_name, display_name)].append(row["assessment_grade"])
+            order_index = row.get("assessment_order_index")
+            sort_key = (order_index if isinstance(order_index, int) else 10**9, assessment_name)
+            existing_sort_key = assessment_order.get((course_key, assessment_name))
+            if existing_sort_key is None or sort_key < existing_sort_key:
+                assessment_order[(course_key, assessment_name)] = sort_key
         course_labels[course_key] = row["course_title"]
         semester_labels[term_code] = row["term_label"]
 
@@ -88,7 +95,8 @@ def build_comparison_dashboard_context(
     assessment_options = [
         {"value": assessment_name, "label": assessment_name}
         for assessment_name in sorted(
-            {assessment_name for course_key, assessment_name, _display_name in by_assessment if course_key == selected_course}
+            {assessment_name for course_key, assessment_name, _display_name in by_assessment if course_key == selected_course},
+            key=lambda assessment_name: assessment_order.get((selected_course, assessment_name), (10**9, assessment_name)),
         )
     ]
     selected_assessment = _select_option(assessment_options, selected_assessment)
