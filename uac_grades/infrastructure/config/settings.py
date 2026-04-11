@@ -23,7 +23,9 @@ def _env(name: str, legacy_name: str, default: str) -> str:
 def _require_env(name: str, legacy_name: str, dotenv_path: Path) -> str:
     value = os.getenv(name, os.getenv(legacy_name, "")).strip()
     if not value:
-        raise RuntimeError(f"Falta la variable de entorno {name}. Revisa {dotenv_path}.")
+        raise RuntimeError(
+            f"Falta la variable de entorno {name}. Revisa {dotenv_path}."
+        )
     return value
 
 
@@ -87,10 +89,6 @@ class WebSettings:
 class ComparisonSettings:
     base_url: str
     identity_path: Path
-    sqlite_path: Path
-    invites_path: Path
-    host: str
-    port: int
 
 
 @dataclass(frozen=True)
@@ -105,15 +103,25 @@ class Settings:
     comparison: ComparisonSettings
 
     @classmethod
-    def load(cls, dotenv_path: Path | None = None, *, require_credentials: bool = True) -> "Settings":
+    def load(
+        cls, dotenv_path: Path | None = None, *, require_credentials: bool = True
+    ) -> "Settings":
         dotenv_path = dotenv_path or Path(".env")
         load_dotenv_file(dotenv_path)
 
         auth_dir = Path(_env("UA_AUTH_DIR", "UAC_AUTH_DIR", ".auth"))
         output_dir = Path(_env("UA_OUTPUT_DIR", "UAC_OUTPUT_DIR", "data"))
-        user_data_dir = _migrate_legacy_path(auth_dir / "ua_profile", auth_dir / "uac_profile")
+        user_data_dir = _migrate_legacy_path(
+            auth_dir / "ua_profile", auth_dir / "uac_profile"
+        )
         sqlite_path = _migrate_legacy_path(
-            Path(_env("UA_SQLITE_PATH", "UAC_SQLITE_PATH", str(output_dir / "ua_grades.sqlite3"))),
+            Path(
+                _env(
+                    "UA_SQLITE_PATH",
+                    "UAC_SQLITE_PATH",
+                    str(output_dir / "ua_grades.sqlite3"),
+                )
+            ),
             output_dir / "uac_grades.sqlite3",
         )
         comparison_identity_path = Path(
@@ -121,20 +129,6 @@ class Settings:
                 "UA_COMPARISON_IDENTITY_PATH",
                 "UAC_COMPARISON_IDENTITY_PATH",
                 str(output_dir / "comparison_identity.json"),
-            )
-        )
-        comparison_sqlite_path = Path(
-            _env(
-                "UA_COMPARISON_SQLITE_PATH",
-                "UAC_COMPARISON_SQLITE_PATH",
-                str(output_dir / "comparison_dashboard.sqlite3"),
-            )
-        )
-        comparison_invites_path = Path(
-            _env(
-                "UA_COMPARISON_INVITES_PATH",
-                "UAC_COMPARISON_INVITES_PATH",
-                str(output_dir / "comparison_claim_invites.json"),
             )
         )
 
@@ -158,7 +152,11 @@ class Settings:
                 ),
             ),
             urls=UrlSettings(
-                sso=_env("UA_URL_SSO", "UAC_URL_SSO", "https://autoservicio8oci.uautonoma.cl/ssomanager/c/SSB"),
+                sso=_env(
+                    "UA_URL_SSO",
+                    "UAC_URL_SSO",
+                    "https://autoservicio8oci.uautonoma.cl/ssomanager/c/SSB",
+                ),
                 grades=_env(
                     "UA_URL_NOTAS",
                     "UAC_URL_NOTAS",
@@ -167,28 +165,48 @@ class Settings:
             ),
             browser=BrowserSettings(
                 capture_banner_contract=_bool_value(
-                    _env("UA_CAPTURE_BANNER_CONTRACT", "UAC_CAPTURE_BANNER_CONTRACT", "false"),
+                    _env(
+                        "UA_CAPTURE_BANNER_CONTRACT",
+                        "UAC_CAPTURE_BANNER_CONTRACT",
+                        "false",
+                    ),
                     False,
                 ),
-                keep_session=_bool_value(_env("UA_MANTENER_SESION", "UAC_MANTENER_SESION", "true"), True),
+                keep_session=_bool_value(
+                    _env("UA_MANTENER_SESION", "UAC_MANTENER_SESION", "true"), True
+                ),
                 wait_2fa_seconds=int(_env("UA_ESPERA_2FA", "UAC_ESPERA_2FA", "60")),
-                headless=_bool_value(_env("UA_HEADLESS", "UAC_HEADLESS", "false"), False),
+                headless=_bool_value(
+                    _env("UA_HEADLESS", "UAC_HEADLESS", "false"), False
+                ),
                 slow_mo=int(_env("UA_SLOW_MO", "UAC_SLOW_MO", "400")),
-                viewport_width=int(_env("UA_VIEWPORT_WIDTH", "UAC_VIEWPORT_WIDTH", "1280")),
-                viewport_height=int(_env("UA_VIEWPORT_HEIGHT", "UAC_VIEWPORT_HEIGHT", "900")),
+                viewport_width=int(
+                    _env("UA_VIEWPORT_WIDTH", "UAC_VIEWPORT_WIDTH", "1280")
+                ),
+                viewport_height=int(
+                    _env("UA_VIEWPORT_HEIGHT", "UAC_VIEWPORT_HEIGHT", "900")
+                ),
                 locale=_env("UA_LOCALE", "UAC_LOCALE", "es-CL"),
                 timezone_id=_env("UA_TIMEZONE", "UAC_TIMEZONE", "America/Santiago"),
                 page_size=int(_env("UA_PAGE_SIZE", "UAC_PAGE_SIZE", "200")),
             ),
             target=TargetSelection(
-                term_code=_env("UA_TARGET_TERM_CODE", "UAC_TARGET_TERM_CODE", "202510").strip(),
+                term_code=_env(
+                    "UA_TARGET_TERM_CODE", "UAC_TARGET_TERM_CODE", "202510"
+                ).strip(),
                 term_description=_env(
                     "UA_TARGET_TERM_DESCRIPTION",
                     "UAC_TARGET_TERM_DESCRIPTION",
                     "Primer Semestre - 2025",
                 ).strip(),
-                level_code=_env("UA_TARGET_LEVEL_CODE", "UAC_TARGET_LEVEL_CODE", "PR").strip(),
-                level_description=_env("UA_TARGET_LEVEL_DESCRIPTION", "UAC_TARGET_LEVEL_DESCRIPTION", "Pregrado").strip(),
+                level_code=_env(
+                    "UA_TARGET_LEVEL_CODE", "UAC_TARGET_LEVEL_CODE", "PR"
+                ).strip(),
+                level_description=_env(
+                    "UA_TARGET_LEVEL_DESCRIPTION",
+                    "UAC_TARGET_LEVEL_DESCRIPTION",
+                    "Pregrado",
+                ).strip(),
             ),
             storage=StorageSettings(
                 output_dir=output_dir,
@@ -202,11 +220,11 @@ class Settings:
                 port=int(_env("UA_WEB_PORT", "UAC_WEB_PORT", "8000")),
             ),
             comparison=ComparisonSettings(
-                base_url=_env("UA_COMPARISON_BASE_URL", "UAC_COMPARISON_BASE_URL", "http://127.0.0.1:9100").strip(),
+                base_url=_env(
+                    "UA_COMPARISON_BASE_URL",
+                    "UAC_COMPARISON_BASE_URL",
+                    "https://serve-comparison.fly.dev",
+                ).strip(),
                 identity_path=comparison_identity_path,
-                sqlite_path=comparison_sqlite_path,
-                invites_path=comparison_invites_path,
-                host=_env("UA_COMPARISON_WEB_HOST", "UAC_COMPARISON_WEB_HOST", "127.0.0.1").strip(),
-                port=int(_env("UA_COMPARISON_WEB_PORT", "UAC_COMPARISON_WEB_PORT", "9100")),
             ),
         )

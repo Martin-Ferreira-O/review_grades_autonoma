@@ -24,7 +24,9 @@ class _FakeHttpClient:
     async def probe_grades_session(self) -> bool:
         self.calls += 1
         if not self._probe_results:
-            raise AssertionError("probe_grades_session se llamó más veces de lo esperado")
+            raise AssertionError(
+                "probe_grades_session se llamó más veces de lo esperado"
+            )
         return self._probe_results.pop(0)
 
 
@@ -51,7 +53,9 @@ class _RecordingAuthenticator(MicrosoftAuthenticator):
 def _settings(temp_dir: Path) -> Settings:
     return Settings(
         dotenv_path=temp_dir / ".env",
-        credentials=Credentials(username="user@example.com", password="secret", totp_secret="totp"),
+        credentials=Credentials(
+            username="user@example.com", password="secret", totp_secret="totp"
+        ),
         urls=UrlSettings(
             sso="https://autoservicio8oci.uautonoma.cl/ssomanager/c/SSB",
             grades="https://autoserviciooci.uautonoma.cl/StudentSelfService/ssb/studentGrades",
@@ -85,16 +89,14 @@ def _settings(temp_dir: Path) -> Settings:
         comparison=ComparisonSettings(
             base_url="http://127.0.0.1:9100",
             identity_path=temp_dir / "data" / "comparison_identity.json",
-            sqlite_path=temp_dir / "data" / "comparison_dashboard.sqlite3",
-            invites_path=temp_dir / "data" / "comparison_claim_invites.json",
-            host="127.0.0.1",
-            port=9100,
         ),
     )
 
 
 class MicrosoftAuthenticatorTests(unittest.IsolatedAsyncioTestCase):
-    async def test_ensure_session_skips_browser_when_http_session_is_valid(self) -> None:
+    async def test_ensure_session_skips_browser_when_http_session_is_valid(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             settings = _settings(Path(temp_dir))
             auth = _RecordingAuthenticator(
@@ -126,7 +128,9 @@ class MicrosoftAuthenticatorTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(auth.renew_calls, 1)
             self.assertEqual(http_client.calls, 2)
 
-    async def test_ensure_session_fails_when_http_validation_still_fails_after_renewal(self) -> None:
+    async def test_ensure_session_fails_when_http_validation_still_fails_after_renewal(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             settings = _settings(Path(temp_dir))
             auth = _RecordingAuthenticator(

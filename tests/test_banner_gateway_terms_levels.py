@@ -29,7 +29,9 @@ def _load_fixture(name: str) -> dict:
 def _settings(temp_dir: Path) -> Settings:
     return Settings(
         dotenv_path=temp_dir / ".env",
-        credentials=Credentials(username="user@example.com", password="secret", totp_secret="totp"),
+        credentials=Credentials(
+            username="user@example.com", password="secret", totp_secret="totp"
+        ),
         urls=UrlSettings(
             sso="https://autoservicio8oci.uautonoma.cl/ssomanager/c/SSB",
             grades="https://autoserviciooci.uautonoma.cl/StudentSelfService/ssb/studentGrades",
@@ -63,15 +65,13 @@ def _settings(temp_dir: Path) -> Settings:
         comparison=ComparisonSettings(
             base_url="http://127.0.0.1:9100",
             identity_path=temp_dir / "data" / "comparison_identity.json",
-            sqlite_path=temp_dir / "data" / "comparison_dashboard.sqlite3",
-            invites_path=temp_dir / "data" / "comparison_claim_invites.json",
-            host="127.0.0.1",
-            port=9100,
         ),
     )
 
 
-def _write_storage_state(path: Path, *, cookie_value: str = "abc123") -> SessionStateStore:
+def _write_storage_state(
+    path: Path, *, cookie_value: str = "abc123"
+) -> SessionStateStore:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         json.dumps(
@@ -103,11 +103,20 @@ class BannerGatewayTermsLevelsTests(unittest.IsolatedAsyncioTestCase):
             def handler(request: httpx.Request) -> httpx.Response:
                 self.assertEqual(request.method, terms_fixture["request"]["method"])
                 self.assertEqual(request.url.path, terms_fixture["request"]["path"])
-                self.assertEqual(dict(request.url.params), terms_fixture["request"]["query"])
-                self.assertEqual(request.headers["accept"], terms_fixture["request"]["headers"]["accept"])
-                return httpx.Response(200, json=terms_fixture["response"]["body"], request=request)
+                self.assertEqual(
+                    dict(request.url.params), terms_fixture["request"]["query"]
+                )
+                self.assertEqual(
+                    request.headers["accept"],
+                    terms_fixture["request"]["headers"]["accept"],
+                )
+                return httpx.Response(
+                    200, json=terms_fixture["response"]["body"], request=request
+                )
 
-            http_client = BannerHttpClient(settings, store, transport=httpx.MockTransport(handler))
+            http_client = BannerHttpClient(
+                settings, store, transport=httpx.MockTransport(handler)
+            )
             gateway = BannerGateway(
                 settings=settings,
                 debug_store=DebugArtifactStore(settings.storage.output_dir),
@@ -135,11 +144,20 @@ class BannerGatewayTermsLevelsTests(unittest.IsolatedAsyncioTestCase):
             def handler(request: httpx.Request) -> httpx.Response:
                 self.assertEqual(request.method, levels_fixture["request"]["method"])
                 self.assertEqual(request.url.path, levels_fixture["request"]["path"])
-                self.assertEqual(dict(request.url.params), levels_fixture["request"]["query"])
-                self.assertEqual(request.headers["accept"], levels_fixture["request"]["headers"]["accept"])
-                return httpx.Response(200, json=levels_fixture["response"]["body"], request=request)
+                self.assertEqual(
+                    dict(request.url.params), levels_fixture["request"]["query"]
+                )
+                self.assertEqual(
+                    request.headers["accept"],
+                    levels_fixture["request"]["headers"]["accept"],
+                )
+                return httpx.Response(
+                    200, json=levels_fixture["response"]["body"], request=request
+                )
 
-            http_client = BannerHttpClient(settings, store, transport=httpx.MockTransport(handler))
+            http_client = BannerHttpClient(
+                settings, store, transport=httpx.MockTransport(handler)
+            )
             gateway = BannerGateway(
                 settings=settings,
                 debug_store=DebugArtifactStore(settings.storage.output_dir),
@@ -160,12 +178,18 @@ class BannerGatewayTermsLevelsTests(unittest.IsolatedAsyncioTestCase):
 
             def handler(request: httpx.Request) -> httpx.Response:
                 if request.url.path == "/StudentSelfService/studentGrades/term":
-                    return httpx.Response(200, json=terms_fixture["response"]["body"], request=request)
+                    return httpx.Response(
+                        200, json=terms_fixture["response"]["body"], request=request
+                    )
                 if request.url.path == "/StudentSelfService/studentGrades/level":
-                    return httpx.Response(200, json=levels_fixture["response"]["body"], request=request)
+                    return httpx.Response(
+                        200, json=levels_fixture["response"]["body"], request=request
+                    )
                 raise AssertionError(f"Unexpected path {request.url.path}")
 
-            http_client = BannerHttpClient(settings, store, transport=httpx.MockTransport(handler))
+            http_client = BannerHttpClient(
+                settings, store, transport=httpx.MockTransport(handler)
+            )
             gateway = BannerGateway(
                 settings=settings,
                 debug_store=DebugArtifactStore(settings.storage.output_dir),
@@ -174,14 +198,20 @@ class BannerGatewayTermsLevelsTests(unittest.IsolatedAsyncioTestCase):
 
             term, level = await gateway._fetch_term_and_level()
 
-            self.assertEqual(term, {"code": "202510", "description": "Primer Semestre - 2025"})
+            self.assertEqual(
+                term, {"code": "202510", "description": "Primer Semestre - 2025"}
+            )
             self.assertEqual(level, {"code": "PR", "description": "Pregrado"})
 
-    async def test_open_grades_page_preserves_rotated_cookies_for_following_requests(self) -> None:
+    async def test_open_grades_page_preserves_rotated_cookies_for_following_requests(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             settings = _settings(temp_path)
-            store = _write_storage_state(settings.storage.storage_state_path, cookie_value="seed-cookie")
+            store = _write_storage_state(
+                settings.storage.storage_state_path, cookie_value="seed-cookie"
+            )
             terms_fixture = _load_fixture("terms")
             seen_paths: list[str] = []
 
@@ -189,10 +219,12 @@ class BannerGatewayTermsLevelsTests(unittest.IsolatedAsyncioTestCase):
                 seen_paths.append(request.url.path)
 
                 if request.url.path == "/StudentSelfService/ssb/studentGrades":
-                    self.assertIn("JSESSIONID=seed-cookie", request.headers.get("cookie", ""))
+                    self.assertIn(
+                        "JSESSIONID=seed-cookie", request.headers.get("cookie", "")
+                    )
                     return httpx.Response(
                         200,
-                        text="<html><body><input id=\"term\" /></body></html>",
+                        text='<html><body><input id="term" /></body></html>',
                         headers={
                             "set-cookie": "JSESSIONID=rotated-cookie; Path=/StudentSelfService; Domain=autoserviciooci.uautonoma.cl"
                         },
@@ -200,12 +232,18 @@ class BannerGatewayTermsLevelsTests(unittest.IsolatedAsyncioTestCase):
                     )
 
                 if request.url.path == "/StudentSelfService/studentGrades/term":
-                    self.assertIn("JSESSIONID=rotated-cookie", request.headers.get("cookie", ""))
-                    return httpx.Response(200, json=terms_fixture["response"]["body"], request=request)
+                    self.assertIn(
+                        "JSESSIONID=rotated-cookie", request.headers.get("cookie", "")
+                    )
+                    return httpx.Response(
+                        200, json=terms_fixture["response"]["body"], request=request
+                    )
 
                 raise AssertionError(f"Unexpected path {request.url.path}")
 
-            http_client = BannerHttpClient(settings, store, transport=httpx.MockTransport(handler))
+            http_client = BannerHttpClient(
+                settings, store, transport=httpx.MockTransport(handler)
+            )
             gateway = BannerGateway(
                 settings=settings,
                 debug_store=DebugArtifactStore(settings.storage.output_dir),
@@ -216,7 +254,13 @@ class BannerGatewayTermsLevelsTests(unittest.IsolatedAsyncioTestCase):
                 await gateway._open_grades_page(client)
                 terms = await gateway._fetch_terms(client)
 
-            self.assertEqual(seen_paths, ["/StudentSelfService/ssb/studentGrades", "/StudentSelfService/studentGrades/term"])
+            self.assertEqual(
+                seen_paths,
+                [
+                    "/StudentSelfService/ssb/studentGrades",
+                    "/StudentSelfService/studentGrades/term",
+                ],
+            )
             self.assertEqual(terms[0]["code"], "202610")
 
 

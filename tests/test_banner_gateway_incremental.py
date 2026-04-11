@@ -61,7 +61,9 @@ class _RecordingGateway(BannerGateway):
         self.requested_terms.append(term_code)
         return [{"code": "PR", "description": "Pregrado"}]
 
-    async def _fetch_courses(self, term_code: str, level_code: str, client=None) -> list:
+    async def _fetch_courses(
+        self, term_code: str, level_code: str, client=None
+    ) -> list:
         self.requested_terms.append(term_code)
         if term_code == "202610":
             return []
@@ -88,7 +90,9 @@ def _settings() -> Settings:
     root = Path("/tmp/ua_grades_incremental_test")
     return Settings(
         dotenv_path=root / ".env",
-        credentials=Credentials(username="user@example.com", password="secret", totp_secret="totp"),
+        credentials=Credentials(
+            username="user@example.com", password="secret", totp_secret="totp"
+        ),
         urls=UrlSettings(
             sso="https://autoservicio8oci.uautonoma.cl/ssomanager/c/SSB",
             grades="https://autoserviciooci.uautonoma.cl/StudentSelfService/ssb/studentGrades",
@@ -122,22 +126,24 @@ def _settings() -> Settings:
         comparison=ComparisonSettings(
             base_url="http://127.0.0.1:9100",
             identity_path=root / "data" / "comparison_identity.json",
-            sqlite_path=root / "data" / "comparison_dashboard.sqlite3",
-            invites_path=root / "data" / "comparison_claim_invites.json",
-            host="127.0.0.1",
-            port=9100,
         ),
     )
 
 
 class BannerGatewayIncrementalTests(unittest.IsolatedAsyncioTestCase):
-    async def test_fetch_current_term_history_skips_future_empty_term_and_uses_latest_with_courses(self) -> None:
+    async def test_fetch_current_term_history_skips_future_empty_term_and_uses_latest_with_courses(
+        self,
+    ) -> None:
         gateway = _RecordingGateway(_settings())
 
         history = await gateway.fetch_current_term_history()
 
-        self.assertEqual([snapshot.term.code for snapshot in history.snapshots], ["202520"])
-        self.assertEqual(gateway.requested_terms, ["202610", "202610", "202520", "202520"])
+        self.assertEqual(
+            [snapshot.term.code for snapshot in history.snapshots], ["202520"]
+        )
+        self.assertEqual(
+            gateway.requested_terms, ["202610", "202610", "202520", "202520"]
+        )
 
 
 if __name__ == "__main__":

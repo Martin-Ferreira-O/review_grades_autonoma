@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Sync de comparacion</title>
     <link rel="stylesheet" href="{{ url_for('static', path='/styles.css') }}?v={{ static_version }}" />
-    <link rel="stylesheet" href="{{ url_for('static', path='/comparison.css') }}?v={{ static_version }}" />
+    <link rel="stylesheet" href="{{ url_for('static', path='/comparison_sync.css') }}?v={{ static_version }}" />
   </head>
   <body>
     <main class="page comparison-page comparison-sync-page">
@@ -125,6 +125,6 @@
       </section>
     </main>
 
-    <script src="{{ url_for('static', path='/comparison.js') }}?v={{ static_version }}"></script>
+    <script src="{{ url_for('static', path='/comparison_sync.js') }}?v={{ static_version }}"></script>
   </body>
 </html>

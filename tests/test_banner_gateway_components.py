@@ -29,7 +29,9 @@ def _load_fixture(name: str) -> dict:
 def _settings(temp_dir: Path) -> Settings:
     return Settings(
         dotenv_path=temp_dir / ".env",
-        credentials=Credentials(username="user@example.com", password="secret", totp_secret="totp"),
+        credentials=Credentials(
+            username="user@example.com", password="secret", totp_secret="totp"
+        ),
         urls=UrlSettings(
             sso="https://autoservicio8oci.uautonoma.cl/ssomanager/c/SSB",
             grades="https://autoserviciooci.uautonoma.cl/StudentSelfService/ssb/studentGrades",
@@ -63,15 +65,13 @@ def _settings(temp_dir: Path) -> Settings:
         comparison=ComparisonSettings(
             base_url="http://127.0.0.1:9100",
             identity_path=temp_dir / "data" / "comparison_identity.json",
-            sqlite_path=temp_dir / "data" / "comparison_dashboard.sqlite3",
-            invites_path=temp_dir / "data" / "comparison_claim_invites.json",
-            host="127.0.0.1",
-            port=9100,
         ),
     )
 
 
-def _write_storage_state(path: Path, *, cookie_value: str = "abc123") -> SessionStateStore:
+def _write_storage_state(
+    path: Path, *, cookie_value: str = "abc123"
+) -> SessionStateStore:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         json.dumps(
@@ -108,13 +108,20 @@ class BannerGatewayComponentsTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(request.method, fixture["request"]["method"])
                 self.assertEqual(request.url.path, fixture["request"]["path"])
                 self.assertEqual(dict(request.url.params), fixture["request"]["query"])
-                self.assertEqual(request.headers["x-requested-with"], fixture["request"]["headers"]["x-requested-with"])
-                return httpx.Response(200, json=fixture["response"]["body"], request=request)
+                self.assertEqual(
+                    request.headers["x-requested-with"],
+                    fixture["request"]["headers"]["x-requested-with"],
+                )
+                return httpx.Response(
+                    200, json=fixture["response"]["body"], request=request
+                )
 
             gateway = BannerGateway(
                 settings=settings,
                 debug_store=DebugArtifactStore(settings.storage.output_dir),
-                http_client=BannerHttpClient(settings, store, transport=httpx.MockTransport(handler)),
+                http_client=BannerHttpClient(
+                    settings, store, transport=httpx.MockTransport(handler)
+                ),
             )
 
             components = await gateway._fetch_course_components(course)
@@ -137,13 +144,20 @@ class BannerGatewayComponentsTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(request.method, fixture["request"]["method"])
                 self.assertEqual(request.url.path, fixture["request"]["path"])
                 self.assertEqual(dict(request.url.params), fixture["request"]["query"])
-                self.assertEqual(request.headers["x-requested-with"], fixture["request"]["headers"]["x-requested-with"])
-                return httpx.Response(200, json=fixture["response"]["body"], request=request)
+                self.assertEqual(
+                    request.headers["x-requested-with"],
+                    fixture["request"]["headers"]["x-requested-with"],
+                )
+                return httpx.Response(
+                    200, json=fixture["response"]["body"], request=request
+                )
 
             gateway = BannerGateway(
                 settings=settings,
                 debug_store=DebugArtifactStore(settings.storage.output_dir),
-                http_client=BannerHttpClient(settings, store, transport=httpx.MockTransport(handler)),
+                http_client=BannerHttpClient(
+                    settings, store, transport=httpx.MockTransport(handler)
+                ),
             )
 
             subcomponents = await gateway._fetch_subcomponents(course, component)

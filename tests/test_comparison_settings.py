@@ -2,30 +2,18 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
-from types import SimpleNamespace
-from unittest.mock import patch, sentinel
+from unittest.mock import patch
 
 from uac_grades.infrastructure.config import Settings
-from uac_grades.interfaces.api import create_comparison_app
-from uac_grades.interfaces.cli import runner
 from uac_grades.interfaces.cli.runner import _build_parser
 
 
 class ComparisonSettingsTests(unittest.TestCase):
-    def test_load_allows_comparison_settings_without_banner_credentials(self) -> None:
+    def test_load_defaults_comparison_base_url_to_hosted_service(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             dotenv_path = root / ".env"
-            dotenv_path.write_text(
-                "\n".join(
-                    [
-                        "UA_COMPARISON_BASE_URL=http://127.0.0.1:9100",
-                        "UA_COMPARISON_WEB_HOST=0.0.0.0",
-                        "UA_COMPARISON_WEB_PORT=9100",
-                    ]
-                ),
-                encoding="utf-8",
-            )
+            dotenv_path.write_text("", encoding="utf-8")
 
             with patch.dict(os.environ, {}, clear=True):
                 settings = Settings.load(dotenv_path, require_credentials=False)
@@ -33,10 +21,11 @@ class ComparisonSettingsTests(unittest.TestCase):
         self.assertEqual(settings.credentials.username, "")
         self.assertEqual(settings.credentials.password, "")
         self.assertEqual(settings.credentials.totp_secret, "")
-        self.assertEqual(settings.comparison.host, "0.0.0.0")
-        self.assertEqual(settings.comparison.port, 9100)
+        self.assertEqual(
+            settings.comparison.base_url, "https://serve-comparison.fly.dev"
+        )
 
-    def test_load_reads_comparison_settings(self) -> None:
+    def test_load_reads_client_side_comparison_settings_only(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             dotenv_path = root / ".env"
@@ -46,12 +35,8 @@ class ComparisonSettingsTests(unittest.TestCase):
                         "UA_USUARIO=test@cloud.uautonoma.cl",
                         "UA_CONTRASENA=secret",
                         "UA_TOTP_SECRET=totp-secret",
-                        "UA_COMPARISON_BASE_URL=http://127.0.0.1:9100",
+                        "UA_COMPARISON_BASE_URL=https://serve-comparison.fly.dev",
                         f"UA_COMPARISON_IDENTITY_PATH={root / 'data' / 'comparison_identity.json'}",
-                        f"UA_COMPARISON_SQLITE_PATH={root / 'data' / 'comparison_dashboard.sqlite3'}",
-                        f"UA_COMPARISON_INVITES_PATH={root / 'data' / 'comparison_claim_invites.json'}",
-                        "UA_COMPARISON_WEB_HOST=0.0.0.0",
-                        "UA_COMPARISON_WEB_PORT=9100",
                     ]
                 ),
                 encoding="utf-8",
@@ -60,44 +45,27 @@ class ComparisonSettingsTests(unittest.TestCase):
             with patch.dict(os.environ, {}, clear=True):
                 settings = Settings.load(dotenv_path)
 
-        self.assertEqual(settings.comparison.base_url, "http://127.0.0.1:9100")
-        self.assertEqual(settings.comparison.host, "0.0.0.0")
-        self.assertEqual(settings.comparison.port, 9100)
-        self.assertEqual(settings.comparison.identity_path.name, "comparison_identity.json")
-        self.assertEqual(settings.comparison.sqlite_path.name, "comparison_dashboard.sqlite3")
-        self.assertEqual(settings.comparison.invites_path.name, "comparison_claim_invites.json")
-
-    def test_parser_supports_serve_comparison(self) -> None:
-        parser = _build_parser()
-        args = parser.parse_args(["serve-comparison", "--host", "0.0.0.0", "--port", "9100"])
-
-        self.assertEqual(args.command, "serve-comparison")
-        self.assertEqual(args.host, "0.0.0.0")
-        self.assertEqual(args.port, 9100)
-
-    def test_create_comparison_app_builds_dedicated_app(self) -> None:
-        settings = SimpleNamespace(
-            comparison=SimpleNamespace(
-                base_url="http://127.0.0.1:9100",
-                sqlite_path=Path("comparison.sqlite3"),
-            )
+        self.assertEqual(
+            settings.comparison.base_url, "https://serve-comparison.fly.dev"
         )
+        self.assertEqual(
+            settings.comparison.identity_path.name, "comparison_identity.json"
+        )
+        self.assertFalse(hasattr(settings.comparison, "sqlite_path"))
+        self.assertFalse(hasattr(settings.comparison, "invites_path"))
+        self.assertFalse(hasattr(settings.comparison, "host"))
+        self.assertFalse(hasattr(settings.comparison, "port"))
 
-        app = create_comparison_app(settings)
-        routes = {route.path for route in app.routes}
+    def test_parser_does_not_support_serve_comparison(self) -> None:
+        parser = _build_parser()
 
-        self.assertEqual(app.title, "UA Comparison Dashboard")
-        self.assertIn("/health", routes)
-        self.assertNotIn("/api/history", routes)
+        with self.assertRaises(SystemExit) as error:
+            parser.parse_args(["serve-comparison"])
 
-    def test_run_comparison_server_uses_factory_and_comparison_bindings(self) -> None:
-        settings = SimpleNamespace(comparison=SimpleNamespace(host="127.0.0.2", port=9200))
+        self.assertEqual(error.exception.code, 2)
 
-        with patch.object(runner.Settings, "load", return_value=settings) as load_settings:
-            with patch("uac_grades.interfaces.api.create_comparison_app", return_value=sentinel.app) as create_app:
-                with patch.object(runner.uvicorn, "run") as run_server:
-                    runner._run_comparison_server(host=None, port=None)
+    def test_api_exports_only_local_app(self) -> None:
+        import uac_grades.interfaces.api as api
 
-        load_settings.assert_called_once_with(require_credentials=False)
-        create_app.assert_called_once_with(settings)
-        run_server.assert_called_once_with(sentinel.app, host="127.0.0.2", port=9200)
+        self.assertTrue(hasattr(api, "create_app"))
+        self.assertFalse(hasattr(api, "create_comparison_app"))
