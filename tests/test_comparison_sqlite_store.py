@@ -3,8 +3,14 @@ import sqlite3
 import unittest
 from pathlib import Path
 
-from uac_grades.domain import ComparisonAssessmentPayload, ComparisonCoursePayload, ComparisonSyncPayload
-from uac_grades.infrastructure.persistence.comparison_sqlite_store import ComparisonSqliteStore
+from uac_grades.domain import (
+    ComparisonAssessmentPayload,
+    ComparisonCoursePayload,
+    ComparisonSyncPayload,
+)
+from uac_grades.infrastructure.persistence.comparison_sqlite_store import (
+    ComparisonSqliteStore,
+)
 
 
 class ComparisonSqliteStoreTests(unittest.TestCase):
@@ -13,7 +19,9 @@ class ComparisonSqliteStoreTests(unittest.TestCase):
             store = ComparisonSqliteStore(Path(temp_dir) / "comparison.sqlite3")
             store.sync_claim_invites({"Martin A.": "invite-123"})
 
-            issued_token = store.claim_identity(display_name="Martin A.", claim_code="invite-123")
+            issued_token = store.claim_identity(
+                display_name="Martin A.", claim_code="invite-123"
+            )
 
         self.assertTrue(issued_token)
 
@@ -41,7 +49,9 @@ class ComparisonSqliteStoreTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             store = ComparisonSqliteStore(Path(temp_dir) / "comparison.sqlite3")
             store.sync_claim_invites({"Martin A.": "invite-123"})
-            issued_token = store.claim_identity(display_name="Martin A.", claim_code="invite-123")
+            issued_token = store.claim_identity(
+                display_name="Martin A.", claim_code="invite-123"
+            )
 
             payload = ComparisonSyncPayload(
                 participant_name="Martin A.",
@@ -90,7 +100,9 @@ class ComparisonSqliteStoreTests(unittest.TestCase):
             database_path = Path(temp_dir) / "comparison.sqlite3"
             store = ComparisonSqliteStore(database_path)
             store.sync_claim_invites({"Martin A.": "invite-123"})
-            issued_token = store.claim_identity(display_name="Martin A.", claim_code="invite-123")
+            issued_token = store.claim_identity(
+                display_name="Martin A.", claim_code="invite-123"
+            )
 
             store.replace_participant_snapshot(
                 ComparisonSyncPayload(
@@ -194,6 +206,70 @@ class ComparisonSqliteStoreTests(unittest.TestCase):
         self.assertEqual(attempts_total, 1)
         self.assertEqual(assessments_total, 1)
         self.assertEqual([row[0] for row in assessment_names], ["Examen"])
+
+    def test_resync_updates_course_metadata_for_existing_canonical_key(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            database_path = Path(temp_dir) / "comparison.sqlite3"
+            store = ComparisonSqliteStore(database_path)
+            store.sync_claim_invites({"Martin A.": "invite-123"})
+            issued_token = store.claim_identity(
+                display_name="Martin A.", claim_code="invite-123"
+            )
+
+            store.replace_participant_snapshot(
+                ComparisonSyncPayload(
+                    participant_name="Martin A.",
+                    claim_code=None,
+                    sync_token=issued_token,
+                    courses=[
+                        ComparisonCoursePayload(
+                            canonical_course_key="MAT101",
+                            course_code="MAT101",
+                            course_title="Calculo I",
+                            term_code="202510",
+                            term_label="Primer Semestre - 2025",
+                            section="1",
+                            status="closed",
+                            current_grade=5.4,
+                            final_grade=5.4,
+                            comparison_grade=5.4,
+                            assessments=[],
+                        )
+                    ],
+                )
+            )
+
+            store.replace_participant_snapshot(
+                ComparisonSyncPayload(
+                    participant_name="Martin A.",
+                    claim_code=None,
+                    sync_token=issued_token,
+                    courses=[
+                        ComparisonCoursePayload(
+                            canonical_course_key="MAT101",
+                            course_code="MAT-101A",
+                            course_title="Calculo I Actualizado",
+                            term_code="202520",
+                            term_label="Segundo Semestre - 2025",
+                            section="1",
+                            status="closed",
+                            current_grade=5.6,
+                            final_grade=5.6,
+                            comparison_grade=5.6,
+                            assessments=[],
+                        )
+                    ],
+                )
+            )
+
+            with sqlite3.connect(database_path) as connection:
+                course_row = connection.execute(
+                    "SELECT course_code, course_title FROM courses WHERE canonical_course_key = ?",
+                    ("MAT101",),
+                ).fetchone()
+
+        self.assertEqual(course_row[0], "MAT-101A")
+        self.assertEqual(course_row[1], "Calculo I Actualizado")
 
 
 if __name__ == "__main__":

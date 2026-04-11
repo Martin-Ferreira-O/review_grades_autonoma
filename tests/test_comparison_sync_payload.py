@@ -1,7 +1,16 @@
 import unittest
 
-from uac_grades.application.services.comparison_sync import build_comparison_sync_payload
-from uac_grades.domain.models import AcademicHistory, AcademicLevel, AcademicTerm, Course, GradeComponent, GradeSnapshot
+from uac_grades.application.services.comparison_sync import (
+    build_comparison_sync_payload,
+)
+from uac_grades.domain.models import (
+    AcademicHistory,
+    AcademicLevel,
+    AcademicTerm,
+    Course,
+    GradeComponent,
+    GradeSnapshot,
+)
 
 
 class ComparisonSyncPayloadTests(unittest.TestCase):
@@ -85,7 +94,9 @@ class ComparisonSyncPayloadTests(unittest.TestCase):
         )
         history = AcademicHistory(snapshots=[snapshot])
 
-        payload = build_comparison_sync_payload(history, participant_name="Martin A.", claim_code="invite-123")
+        payload = build_comparison_sync_payload(
+            history, participant_name="Martin A.", claim_code="invite-123"
+        )
 
         self.assertEqual(payload.participant_name, "Martin A.")
         self.assertEqual(payload.claim_code, "invite-123")
@@ -93,9 +104,13 @@ class ComparisonSyncPayloadTests(unittest.TestCase):
         self.assertEqual(payload.courses[0].canonical_course_key, "MAT101")
         self.assertEqual(payload.courses[0].comparison_grade, 5.4)
         self.assertEqual(len(payload.courses[0].assessments), 2)
-        self.assertEqual(payload.courses[0].assessments[0].canonical_assessment_key, "solemne-1")
+        self.assertEqual(
+            payload.courses[0].assessments[0].canonical_assessment_key, "solemne-1"
+        )
         self.assertEqual(payload.courses[0].assessments[0].grade_text, "18/20")
-        self.assertEqual(payload.courses[0].assessments[1].canonical_assessment_key, "solemne-2")
+        self.assertEqual(
+            payload.courses[0].assessments[1].canonical_assessment_key, "solemne-2"
+        )
         self.assertEqual(payload.courses[0].assessments[1].grade_text, "40%")
 
     def test_scales_nested_assessment_weights_to_effective_course_weight(self) -> None:
@@ -177,7 +192,44 @@ class ComparisonSyncPayloadTests(unittest.TestCase):
             ],
         )
 
-        payload = build_comparison_sync_payload(AcademicHistory(snapshots=[snapshot]), participant_name="Martin A.")
+        payload = build_comparison_sync_payload(
+            AcademicHistory(snapshots=[snapshot]), participant_name="Martin A."
+        )
 
         self.assertEqual(payload.courses[0].assessments[0].weight, 15.0)
         self.assertEqual(payload.courses[0].assessments[1].weight, 15.0)
+
+    def test_keeps_zero_grade_as_current_and_comparison_grade(self) -> None:
+        snapshot = GradeSnapshot(
+            term=AcademicTerm(code="202510", description="Primer Semestre - 2025"),
+            level=AcademicLevel(code="PR", description="Pregrado"),
+            courses=[
+                Course(
+                    course_id="1",
+                    nrc="1001",
+                    code="MAT 101",
+                    section="1",
+                    title="Calculo I",
+                    grade="0.0",
+                    final_grade=None,
+                    midterm_grade="4.5",
+                    term_description="Primer Semestre - 2025",
+                    level_description="Pregrado",
+                    campus=None,
+                    study_path=None,
+                    attempted_hours=None,
+                    earned_hours=None,
+                    gpa_hours=None,
+                    quality_points=None,
+                    components_available=False,
+                    components=[],
+                )
+            ],
+        )
+
+        payload = build_comparison_sync_payload(
+            AcademicHistory(snapshots=[snapshot]), participant_name="Martin A."
+        )
+
+        self.assertEqual(payload.courses[0].current_grade, 0.0)
+        self.assertEqual(payload.courses[0].comparison_grade, 0.0)

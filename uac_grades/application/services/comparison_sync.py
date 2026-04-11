@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import re
 
-from uac_grades.domain import ComparisonAssessmentPayload, ComparisonCoursePayload, ComparisonSyncPayload
+from uac_grades.domain import (
+    ComparisonAssessmentPayload,
+    ComparisonCoursePayload,
+    ComparisonSyncPayload,
+)
 from uac_grades.domain.models import AcademicHistory, Course, GradeComponent
 
 
@@ -29,12 +33,22 @@ def _course_status(course: Course) -> str:
     return "closed" if _parse_grade(course.final_grade) is not None else "in_progress"
 
 
+def _first_grade(*values: str | None) -> float | None:
+    for value in values:
+        parsed = _parse_grade(value)
+        if parsed is not None:
+            return parsed
+    return None
+
+
 def _comparison_grade(course: Course) -> float | None:
-    return _parse_grade(course.final_grade) or _parse_grade(course.grade) or _parse_grade(course.midterm_grade)
+    return _first_grade(course.final_grade, course.grade, course.midterm_grade)
 
 
 def _grade_text(component: GradeComponent) -> str:
-    return str(component.grade or component.score_text or component.percentage or "Pendiente")
+    return str(
+        component.grade or component.score_text or component.percentage or "Pendiente"
+    )
 
 
 def _effective_weight(component: GradeComponent, parent_scale: float) -> float:
@@ -42,7 +56,9 @@ def _effective_weight(component: GradeComponent, parent_scale: float) -> float:
     return parent_scale * weight / 100.0
 
 
-def _leaf_components(components: list[GradeComponent], parent_scale: float = 100.0) -> list[tuple[GradeComponent, float]]:
+def _leaf_components(
+    components: list[GradeComponent], parent_scale: float = 100.0
+) -> list[tuple[GradeComponent, float]]:
     leaves: list[tuple[GradeComponent, float]] = []
     for component in components:
         effective_weight = _effective_weight(component, parent_scale)
@@ -53,7 +69,9 @@ def _leaf_components(components: list[GradeComponent], parent_scale: float = 100
     return leaves
 
 
-def _assessment_payload(component: GradeComponent, effective_weight: float, order_index: int) -> ComparisonAssessmentPayload:
+def _assessment_payload(
+    component: GradeComponent, effective_weight: float, order_index: int
+) -> ComparisonAssessmentPayload:
     return ComparisonAssessmentPayload(
         assessment_name=component.name,
         canonical_assessment_key=_slug(component.name),
@@ -77,7 +95,9 @@ def build_comparison_sync_payload(
         for course in snapshot.courses:
             assessments = [
                 _assessment_payload(component, effective_weight, index)
-                for index, (component, effective_weight) in enumerate(_leaf_components(course.components), start=1)
+                for index, (component, effective_weight) in enumerate(
+                    _leaf_components(course.components), start=1
+                )
             ]
             courses.append(
                 ComparisonCoursePayload(
@@ -88,7 +108,7 @@ def build_comparison_sync_payload(
                     term_label=snapshot.term.description,
                     section=course.section,
                     status=_course_status(course),
-                    current_grade=_parse_grade(course.grade) or _parse_grade(course.midterm_grade),
+                    current_grade=_first_grade(course.grade, course.midterm_grade),
                     final_grade=_parse_grade(course.final_grade),
                     comparison_grade=_comparison_grade(course),
                     assessments=assessments,

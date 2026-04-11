@@ -181,7 +181,9 @@ class ComparisonSqliteStore:
         return ComparisonIdentity(
             display_name=display_name,
             sync_token=sync_token,
-            last_synced_at=None if row["latest_synced_at"] is None else str(row["latest_synced_at"]),
+            last_synced_at=None
+            if row["latest_synced_at"] is None
+            else str(row["latest_synced_at"]),
         )
 
     def _participant_id_for_token(self, *, display_name: str, sync_token: str) -> int:
@@ -194,7 +196,9 @@ class ComparisonSqliteStore:
             raise PermissionError("sync_token_invalid")
         return int(row["id"])
 
-    def load_identity(self, *, display_name: str, sync_token: str) -> ComparisonIdentity:
+    def load_identity(
+        self, *, display_name: str, sync_token: str
+    ) -> ComparisonIdentity:
         with self._connect() as connection:
             row = connection.execute(
                 "SELECT display_name, latest_synced_at FROM participants WHERE display_name = ? AND sync_token_hash = ?",
@@ -205,7 +209,9 @@ class ComparisonSqliteStore:
         return ComparisonIdentity(
             display_name=str(row["display_name"]),
             sync_token=sync_token,
-            last_synced_at=None if row["latest_synced_at"] is None else str(row["latest_synced_at"]),
+            last_synced_at=None
+            if row["latest_synced_at"] is None
+            else str(row["latest_synced_at"]),
         )
 
     def replace_participant_snapshot(self, payload: ComparisonSyncPayload) -> None:
@@ -235,12 +241,21 @@ class ComparisonSqliteStore:
                 "DELETE FROM participant_assessments WHERE course_attempt_id = ?",
                 (int(attempt_row["id"]),),
             )
-        connection.execute("DELETE FROM participant_course_attempts WHERE participant_id = ?", (participant_id,))
+        connection.execute(
+            "DELETE FROM participant_course_attempts WHERE participant_id = ?",
+            (participant_id,),
+        )
 
         assessments_count = 0
         for course in payload.courses:
             connection.execute(
-                "INSERT OR IGNORE INTO courses (canonical_course_key, course_code, course_title) VALUES (?, ?, ?)",
+                """
+                INSERT INTO courses (canonical_course_key, course_code, course_title)
+                VALUES (?, ?, ?)
+                ON CONFLICT(canonical_course_key) DO UPDATE SET
+                    course_code = excluded.course_code,
+                    course_title = excluded.course_title
+                """,
                 (course.canonical_course_key, course.course_code, course.course_title),
             )
             course_row = connection.execute(
