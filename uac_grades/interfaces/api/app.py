@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import asdict
 from pathlib import Path
+from urllib.parse import parse_qs
 from urllib.parse import quote
 
 import httpx
@@ -111,7 +112,17 @@ def create_app(
         }
 
     @app.post("/api/comparison/sync")
-    async def comparison_sync(payload: dict) -> dict:
+    async def comparison_sync(request: Request) -> dict:
+        content_type = request.headers.get("content-type", "")
+        if "application/json" in content_type:
+            payload = await request.json()
+        else:
+            parsed_form = parse_qs((await request.body()).decode("utf-8"), keep_blank_values=True)
+            payload = {key: values[-1] if values else "" for key, values in parsed_form.items()}
+
+        if not isinstance(payload, dict):
+            raise HTTPException(status_code=400, detail="Payload de sincronizacion invalido")
+
         history = store.load_latest()
         if history is None:
             raise HTTPException(status_code=404, detail="Aun no existe historial local para sincronizar")

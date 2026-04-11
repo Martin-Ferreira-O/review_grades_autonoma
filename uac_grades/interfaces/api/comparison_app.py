@@ -17,12 +17,20 @@ from uac_grades.infrastructure.persistence.comparison_sqlite_store import Compar
 TEMPLATES_DIR = Path(__file__).with_name("templates")
 STATIC_DIR = Path(__file__).with_name("static")
 
+ALLOWED_ACTIVE_TABS = {"course", "semester", "historical"}
+
 
 def _static_version() -> str:
     mtimes = [str(path.stat().st_mtime_ns) for path in STATIC_DIR.rglob("*") if path.is_file()]
     if not mtimes:
         return "dev"
     return max(mtimes)
+
+
+def _active_tab(value: str | None) -> str:
+    if value in ALLOWED_ACTIVE_TABS:
+        return value
+    return "course"
 
 
 class ComparisonAssessmentRequest(BaseModel):
@@ -104,8 +112,13 @@ def create_comparison_app(settings: Settings | None = None) -> FastAPI:
         selected_course: str | None = None,
         selected_semester: str | None = None,
         selected_assessment: str | None = None,
+        active_tab: str | None = None,
     ):
-        context = {"request": request, "static_version": _static_version()}
+        context = {
+            "request": request,
+            "static_version": _static_version(),
+            "active_tab": _active_tab(active_tab),
+        }
         context.update(
             build_comparison_dashboard_context(
                 store.load_dashboard_rows(),

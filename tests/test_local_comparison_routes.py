@@ -138,6 +138,40 @@ class LocalComparisonRoutesTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(identity_store.load().sync_token, "issued-token")
 
+    def test_local_sync_endpoint_accepts_form_submission(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            dotenv_path = root / ".env"
+            dotenv_path.write_text(
+                "\n".join(
+                    [
+                        "UA_USUARIO=test@cloud.uautonoma.cl",
+                        "UA_CONTRASENA=secret",
+                        "UA_TOTP_SECRET=totp-secret",
+                        "UA_COMPARISON_BASE_URL=http://127.0.0.1:9100",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            settings = Settings.load(dotenv_path)
+            identity_store = _FakeIdentityStore()
+            client = TestClient(
+                create_app(
+                    settings,
+                    history_store=_FakeHistoryStore(AcademicHistory(snapshots=[])),
+                    comparison_client=_FakeComparisonClient(),
+                    identity_store=identity_store,
+                )
+            )
+
+            response = client.post(
+                "/api/comparison/sync",
+                data={"participant_name": "Martin A.", "claim_code": "invite-123"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(identity_store.load().sync_token, "issued-token")
+
     def test_local_sync_endpoint_refreshes_last_synced_at_for_linked_user(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

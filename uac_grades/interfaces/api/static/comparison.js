@@ -5,6 +5,7 @@
     containers.forEach((container) => {
       const tabs = Array.from(container.querySelectorAll("[data-tab-target]"));
       const panels = Array.from(document.querySelectorAll("[data-tab-panel]"));
+      const activeTabInputs = Array.from(document.querySelectorAll("[data-active-tab-input]"));
 
       if (!tabs.length || !panels.length) {
         return;
@@ -15,6 +16,7 @@
           const isActive = tab.dataset.tabTarget === target;
           tab.classList.toggle("is-active", isActive);
           tab.setAttribute("aria-selected", String(isActive));
+          tab.tabIndex = isActive ? 0 : -1;
         });
 
         panels.forEach((panel) => {
@@ -22,13 +24,61 @@
           panel.classList.toggle("is-active", isActive);
           panel.hidden = !isActive;
         });
+
+        activeTabInputs.forEach((input) => {
+          input.value = target;
+        });
+
+        container.dataset.activeTab = target;
+      };
+
+      const focusTabAtIndex = (index) => {
+        const tab = tabs[index];
+        if (!(tab instanceof HTMLButtonElement)) {
+          return;
+        }
+
+        activate(tab.dataset.tabTarget || "course");
+        tab.focus();
       };
 
       tabs.forEach((tab) => {
         tab.addEventListener("click", () => {
           activate(tab.dataset.tabTarget || "course");
         });
+
+        tab.addEventListener("keydown", (event) => {
+          const currentIndex = tabs.indexOf(tab);
+          if (currentIndex === -1) {
+            return;
+          }
+
+          if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+            event.preventDefault();
+            focusTabAtIndex((currentIndex + 1) % tabs.length);
+            return;
+          }
+
+          if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+            event.preventDefault();
+            focusTabAtIndex((currentIndex - 1 + tabs.length) % tabs.length);
+            return;
+          }
+
+          if (event.key === "Home") {
+            event.preventDefault();
+            focusTabAtIndex(0);
+            return;
+          }
+
+          if (event.key === "End") {
+            event.preventDefault();
+            focusTabAtIndex(tabs.length - 1);
+          }
+        });
       });
+
+      activate(container.dataset.activeTab || "course");
     });
   }
 

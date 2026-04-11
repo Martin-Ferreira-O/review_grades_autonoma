@@ -47,10 +47,10 @@
           <p>Usa las pestañas para alternar entre el rendimiento por ramo, semestre e historico.</p>
         </div>
 
-        <div class="comparison-tab-bar" data-tabs role="tablist" aria-label="Comparativas principales">
-          <button class="comparison-tab is-active" id="comparison-tab-course" type="button" role="tab" data-tab-target="course" aria-controls="comparison-panel-course" aria-selected="true">Ramo</button>
-          <button class="comparison-tab" id="comparison-tab-semester" type="button" role="tab" data-tab-target="semester" aria-controls="comparison-panel-semester" aria-selected="false">Semestre</button>
-          <button class="comparison-tab" id="comparison-tab-historical" type="button" role="tab" data-tab-target="historical" aria-controls="comparison-panel-historical" aria-selected="false">Historico</button>
+        <div class="comparison-tab-bar" data-tabs data-active-tab="{{ active_tab }}" role="tablist" aria-label="Comparativas principales">
+          <button class="comparison-tab {% if active_tab == 'course' %}is-active{% endif %}" id="comparison-tab-course" type="button" role="tab" tabindex="{% if active_tab == 'course' %}0{% else %}-1{% endif %}" data-tab-target="course" aria-controls="comparison-panel-course" aria-selected="{{ 'true' if active_tab == 'course' else 'false' }}">Ramo</button>
+          <button class="comparison-tab {% if active_tab == 'semester' %}is-active{% endif %}" id="comparison-tab-semester" type="button" role="tab" tabindex="{% if active_tab == 'semester' %}0{% else %}-1{% endif %}" data-tab-target="semester" aria-controls="comparison-panel-semester" aria-selected="{{ 'true' if active_tab == 'semester' else 'false' }}">Semestre</button>
+          <button class="comparison-tab {% if active_tab == 'historical' %}is-active{% endif %}" id="comparison-tab-historical" type="button" role="tab" tabindex="{% if active_tab == 'historical' %}0{% else %}-1{% endif %}" data-tab-target="historical" aria-controls="comparison-panel-historical" aria-selected="{{ 'true' if active_tab == 'historical' else 'false' }}">Historico</button>
         </div>
 
         {% if not summary.participants %}
@@ -63,7 +63,7 @@
         {% endif %}
 
         <div class="comparison-tab-panels">
-          <section class="comparison-tab-panel is-active" id="comparison-panel-course" role="tabpanel" aria-labelledby="comparison-tab-course" data-tab-panel="course">
+          <section class="comparison-tab-panel {% if active_tab == 'course' %}is-active{% endif %}" id="comparison-panel-course" role="tabpanel" aria-labelledby="comparison-tab-course" data-tab-panel="course" {% if active_tab != 'course' %}hidden{% endif %}>
             <div class="comparison-panel-header">
               <div>
                 <h2>Ramo</h2>
@@ -73,6 +73,7 @@
                 {% if summary.selected_participant %}
                 <input type="hidden" name="participant" value="{{ summary.selected_participant.display_name }}" />
                 {% endif %}
+                <input type="hidden" name="active_tab" value="{{ active_tab }}" data-active-tab-input />
                 <input type="hidden" name="selected_semester" value="{{ tabs.semester.selected or '' }}" />
                 <div class="comparison-filter-grid">
                   <label class="comparison-field compact">
@@ -155,7 +156,7 @@
             </div>
           </section>
 
-          <section class="comparison-tab-panel" id="comparison-panel-semester" role="tabpanel" aria-labelledby="comparison-tab-semester" data-tab-panel="semester" hidden>
+          <section class="comparison-tab-panel {% if active_tab == 'semester' %}is-active{% endif %}" id="comparison-panel-semester" role="tabpanel" aria-labelledby="comparison-tab-semester" data-tab-panel="semester" {% if active_tab != 'semester' %}hidden{% endif %}>
             <div class="comparison-panel-header">
               <div>
                 <h2>Semestre</h2>
@@ -165,6 +166,7 @@
                 {% if summary.selected_participant %}
                 <input type="hidden" name="participant" value="{{ summary.selected_participant.display_name }}" />
                 {% endif %}
+                <input type="hidden" name="active_tab" value="{{ active_tab }}" data-active-tab-input />
                 <input type="hidden" name="selected_course" value="{{ tabs.course.selected or '' }}" />
                 <input type="hidden" name="selected_assessment" value="{{ tabs.course.selected_assessment or '' }}" />
                 <div class="comparison-filter-grid single-select">
@@ -210,7 +212,7 @@
             </article>
           </section>
 
-          <section class="comparison-tab-panel" id="comparison-panel-historical" role="tabpanel" aria-labelledby="comparison-tab-historical" data-tab-panel="historical" hidden>
+          <section class="comparison-tab-panel {% if active_tab == 'historical' %}is-active{% endif %}" id="comparison-panel-historical" role="tabpanel" aria-labelledby="comparison-tab-historical" data-tab-panel="historical" {% if active_tab != 'historical' %}hidden{% endif %}>
             <div class="comparison-panel-header simple">
               <div>
                 <h2>Historico</h2>
