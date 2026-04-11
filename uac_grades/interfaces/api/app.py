@@ -4,6 +4,7 @@ from dataclasses import asdict
 from pathlib import Path
 from urllib.parse import quote
 
+import httpx
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -23,6 +24,19 @@ def _static_version() -> str:
     if not mtimes:
         return "dev"
     return max(mtimes)
+
+
+def _downstream_error_detail(error: httpx.HTTPStatusError):
+    try:
+        payload = error.response.json()
+    except ValueError:
+        payload = error.response.text.strip()
+
+    if isinstance(payload, dict) and "detail" in payload:
+        return payload["detail"]
+    if payload:
+        return payload
+    return f"Comparison sync failed with status {error.response.status_code}"
 
 
 def create_app(
@@ -109,14 +123,19 @@ def create_app(
             claim_code=payload.get("claim_code") if identity is None else None,
             sync_token=identity.sync_token if identity else None,
         )
-        response = await comparison_client.sync(
-            {
-                "participant_name": sync_payload.participant_name,
-                "claim_code": sync_payload.claim_code,
-                "sync_token": sync_payload.sync_token,
-                "courses": [asdict(course) for course in sync_payload.courses],
-            }
-        )
+        try:
+            response = await comparison_client.sync(
+                {
+                    "participant_name": sync_payload.participant_name,
+                    "claim_code": sync_payload.claim_code,
+                    "sync_token": sync_payload.sync_token,
+                    "courses": [asdict(course) for course in sync_payload.courses],
+                }
+            )
+        except httpx.HTTPStatusError as error:
+            raise HTTPException(status_code=error.response.status_code, detail=_downstream_error_detail(error)) from error
+        except httpx.RequestError as error:
+            raise HTTPException(status_code=502, detail="No se pudo conectar con el servicio de comparacion") from error
 
         issued_sync_token = response.get("issued_sync_token")
         sync_token_to_save = issued_sync_token or (identity.sync_token if identity else None)

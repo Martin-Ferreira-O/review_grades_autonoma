@@ -2,6 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import httpx
 from fastapi.testclient import TestClient
 
 from uac_grades.domain import ComparisonIdentity
@@ -41,6 +42,13 @@ class _FakeRefreshComparisonClient:
             "synced_assessments": 0,
             "synced_at": "2026-04-10T09:30:00+00:00",
         }
+
+
+class _FakeFailingComparisonClient:
+    async def sync(self, payload: dict) -> dict:
+        request = httpx.Request("POST", "http://127.0.0.1:9100/api/comparison/sync", json=payload)
+        response = httpx.Response(403, request=request, json={"detail": "invite code rejected"})
+        raise httpx.HTTPStatusError("forbidden", request=request, response=response)
 
 
 class _FakeIdentityStore:
@@ -160,3 +168,80 @@ class LocalComparisonRoutesTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(identity_store.load().sync_token, "existing-token")
         self.assertEqual(identity_store.load().last_synced_at, "2026-04-10T09:30:00+00:00")
+
+    def test_local_sync_endpoint_preserves_downstream_status_and_detail(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            dotenv_path = root / ".env"
+            dotenv_path.write_text(
+                "\n".join(
+                    [
+                        "UA_USUARIO=test@cloud.uautonoma.cl",
+                        "UA_CONTRASENA=secret",
+                        "UA_TOTP_SECRET=totp-secret",
+                        "UA_COMPARISON_BASE_URL=http://127.0.0.1:9100",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            settings = Settings.load(dotenv_path)
+            client = TestClient(
+                create_app(
+                    settings,
+                    history_store=_FakeHistoryStore(AcademicHistory(snapshots=[])),
+                    comparison_client=_FakeFailingComparisonClient(),
+                    identity_store=_FakeIdentityStore(),
+                )
+            )
+
+            response = client.post(
+                "/api/comparison/sync",
+                json={"participant_name": "Martin A.", "claim_code": "invite-123"},
+            )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.json(), {"detail": "invite code rejected"})
+
+    def test_comparison_link_status_reflects_saved_identity(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            dotenv_path = root / ".env"
+            dotenv_path.write_text(
+                "\n".join(
+                    [
+                        "UA_USUARIO=test@cloud.uautonoma.cl",
+                        "UA_CONTRASENA=secret",
+                        "UA_TOTP_SECRET=totp-secret",
+                        "UA_COMPARISON_BASE_URL=http://127.0.0.1:9100",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            settings = Settings.load(dotenv_path)
+            identity_store = _FakeIdentityStore()
+            identity_store.save(
+                display_name="Martin A.",
+                sync_token="existing-token",
+                last_synced_at="2026-04-10T09:30:00+00:00",
+            )
+            client = TestClient(
+                create_app(
+                    settings,
+                    history_store=_FakeHistoryStore(AcademicHistory(snapshots=[])),
+                    comparison_client=_FakeComparisonClient(),
+                    identity_store=identity_store,
+                )
+            )
+
+            response = client.get("/api/comparison/link-status")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json(),
+            {
+                "linked": True,
+                "display_name": "Martin A.",
+                "comparison_base_url": "http://127.0.0.1:9100",
+                "last_synced_at": "2026-04-10T09:30:00+00:00",
+            },
+        )
