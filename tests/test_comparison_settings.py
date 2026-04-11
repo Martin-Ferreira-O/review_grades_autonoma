@@ -57,7 +57,8 @@ class ComparisonSettingsTests(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            settings = Settings.load(dotenv_path)
+            with patch.dict(os.environ, {}, clear=True):
+                settings = Settings.load(dotenv_path)
 
         self.assertEqual(settings.comparison.base_url, "http://127.0.0.1:9100")
         self.assertEqual(settings.comparison.host, "0.0.0.0")

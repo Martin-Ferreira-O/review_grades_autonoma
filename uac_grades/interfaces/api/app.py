@@ -130,7 +130,7 @@ def create_app(
         identity = identity_store.load()
         sync_payload = build_comparison_sync_payload(
             history,
-            participant_name=str(payload.get("participant_name") or (identity.display_name if identity else "")).strip(),
+            participant_name=(identity.display_name if identity else str(payload.get("participant_name") or "").strip()),
             claim_code=payload.get("claim_code") if identity is None else None,
             sync_token=identity.sync_token if identity else None,
         )

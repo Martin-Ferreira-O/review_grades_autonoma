@@ -9,6 +9,7 @@ from uac_grades.domain.models import Credentials
 from uac_grades.infrastructure.banner import BannerHttpClient
 from uac_grades.infrastructure.config.settings import (
     BrowserSettings,
+    ComparisonSettings,
     Settings,
     StorageSettings,
     TargetSelection,
@@ -52,6 +53,14 @@ def _settings(temp_dir: Path) -> Settings:
             sqlite_path=temp_dir / "data" / "ua_grades.sqlite3",
         ),
         web=WebSettings(host="127.0.0.1", port=8000),
+        comparison=ComparisonSettings(
+            base_url="http://127.0.0.1:9100",
+            identity_path=temp_dir / "data" / "comparison_identity.json",
+            sqlite_path=temp_dir / "data" / "comparison_dashboard.sqlite3",
+            invites_path=temp_dir / "data" / "comparison_claim_invites.json",
+            host="127.0.0.1",
+            port=9100,
+        ),
     )
 
 

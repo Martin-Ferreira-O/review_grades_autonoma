@@ -50,6 +50,7 @@ Con ese historial puedes:
 python main.py fetch
 python main.py fetch --full
 python main.py serve
+python main.py serve-comparison
 ```
 
 `fetch` actualiza solo el semestre actual cuando ya existe un historial guardado.
@@ -59,6 +60,10 @@ Usa `python main.py fetch --full` si quieres recargar todos los semestres manual
 Si la sesion HTTP sigue vigente, `fetch` no deberia abrir ningun browser.
 
 El dashboard queda disponible en `http://127.0.0.1:8000`.
+
+`python main.py serve` inicia el dashboard local que lee tu historial desde `SQLite`, muestra el resumen academico y ofrece dos entradas al flujo de comparacion: `Ir a dashboard de comparacion` y `Subir mis datos / Sync`.
+
+`python main.py serve-comparison` inicia el dashboard comparador remoto. Ese servicio recibe snapshots sincronizados, guarda el tablero compartido en su propio `SQLite` y renderiza rankings por `Ramo`, `Semestre` e `Historico`.
 
 ## Uso local
 
@@ -97,7 +102,55 @@ Copia `.env.example` a `.env` y completa tus credenciales.
 - `UA_SQLITE_PATH`
 - `UA_WEB_HOST`
 - `UA_WEB_PORT`
+- `UA_COMPARISON_BASE_URL`
+- `UA_COMPARISON_IDENTITY_PATH`
+- `UA_COMPARISON_SQLITE_PATH`
+- `UA_COMPARISON_INVITES_PATH`
+- `UA_COMPARISON_WEB_HOST`
+- `UA_COMPARISON_WEB_PORT`
 - `UA_CAPTURE_BANNER_CONTRACT`
+
+## Comparacion y sync
+
+Para usar el tablero comparador necesitas levantar ambos servicios:
+
+```bash
+python main.py serve
+python main.py serve-comparison
+```
+
+Configuracion relevante en `.env`:
+
+- `UA_COMPARISON_BASE_URL`: URL del tablero remoto a donde apunta el dashboard local.
+- `UA_COMPARISON_IDENTITY_PATH`: archivo local donde se guarda `display_name`, `sync_token` y fecha del ultimo sync.
+- `UA_COMPARISON_SQLITE_PATH`: `SQLite` del tablero remoto compartido.
+- `UA_COMPARISON_INVITES_PATH`: archivo JSON con los codigos de claim autorizados.
+- `UA_COMPARISON_WEB_HOST` y `UA_COMPARISON_WEB_PORT`: host/puerto para `python main.py serve-comparison`.
+
+El administrador del tablero remoto debe preparar `data/comparison_claim_invites.json` antes del primer sync. Puedes copiar el ejemplo incluido en `data/comparison_claim_invites.example.json` y cambiarlo por los nombres y codigos reales del grupo.
+
+Ejemplo:
+
+```json
+{
+  "Martin A.": "claim-martin-a",
+  "Camila R.": "claim-camila-r"
+}
+```
+
+Flujo de primera vinculacion:
+
+1. La persona abre `Subir mis datos / Sync` desde el dashboard local.
+2. En el primer envio completa `display_name` y `claim_code`.
+3. El servicio remoto valida ese claim, crea o reemplaza el snapshot del participante y devuelve un `sync_token`.
+4. La app local guarda ese `sync_token` en `UA_COMPARISON_IDENTITY_PATH` junto al nombre mostrado.
+5. Los siguientes sync reutilizan ese token automaticamente, por lo que ya no vuelven a pedir `claim_code` y nadie mas puede actualizar los datos de ese participante sin el token correcto.
+
+Consecuencias practicas del flujo:
+
+- Un `claim_code` invalido en el primer enlace es rechazado por el servidor remoto.
+- Un `sync_token` incorrecto tambien es rechazado cuando alguien intenta actualizar un participante ya vinculado.
+- Cuando ya existe vinculacion, el dashboard local construye el link al tablero remoto con `?participant=<display_name>` para resaltar tu posicion al abrir la vista compartida.
 
 ## Sesion y autenticacion
 

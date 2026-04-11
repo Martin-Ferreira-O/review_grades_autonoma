@@ -33,7 +33,11 @@ class _FakeComparisonClient:
 
 
 class _FakeRefreshComparisonClient:
+    def __init__(self):
+        self.last_payload = None
+
     async def sync(self, payload: dict) -> dict:
+        self.last_payload = payload
         return {
             "participant_name": payload["participant_name"],
             "state": "updated",
@@ -194,11 +198,12 @@ class LocalComparisonRoutesTests(unittest.TestCase):
                 sync_token="existing-token",
                 last_synced_at="2026-04-08T12:00:00+00:00",
             )
+            comparison_client = _FakeRefreshComparisonClient()
             client = TestClient(
                 create_app(
                     settings,
                     history_store=_FakeHistoryStore(AcademicHistory(snapshots=[])),
-                    comparison_client=_FakeRefreshComparisonClient(),
+                    comparison_client=comparison_client,
                     identity_store=identity_store,
                 )
             )
@@ -208,6 +213,9 @@ class LocalComparisonRoutesTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(identity_store.load().sync_token, "existing-token")
         self.assertEqual(identity_store.load().last_synced_at, "2026-04-10T09:30:00+00:00")
+        self.assertEqual(comparison_client.last_payload["participant_name"], "Martin A.")
+        self.assertEqual(comparison_client.last_payload["sync_token"], "existing-token")
+        self.assertIsNone(comparison_client.last_payload["claim_code"])
 
     def test_local_sync_endpoint_preserves_downstream_status_and_detail(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
