@@ -60,7 +60,7 @@ Si la sesion HTTP sigue vigente, `fetch` no deberia abrir ningun browser.
 
 El dashboard queda disponible en `http://127.0.0.1:8000`.
 
-`python main.py serve` inicia el dashboard local que lee tu historial desde `SQLite`, muestra el resumen academico y ofrece dos entradas al flujo de comparacion: `Ir a dashboard de comparacion` y `Subir mis datos / Sync`.
+`python main.py serve` inicia el dashboard local que lee tu historial desde `SQLite`, muestra el resumen academico, permite actualizar notas desde Banner con `Actualizar notas` y ofrece dos entradas al flujo de comparacion: `Ir a dashboard de comparacion` y `Subir mis datos / Sync`.
 
 ## Uso local
 
@@ -170,5 +170,5 @@ Eso genera artifacts en `data/banner_contract/`, incluyendo `summary.json` y una
 
 - El proyecto esta pensado para uso personal y local.
 - La web no scrapea en cada refresh; consume el ultimo historial guardado en SQLite.
-- Si quieres actualizar tus datos, vuelve a ejecutar `python main.py fetch`.
+- Si quieres actualizar tus datos desde la web, usa `Actualizar notas`; el boton queda bloqueado por 1 minuto despues de una carga exitosa.
 - Los screenshots del browser solo se generan en problemas de login o renovacion, no en el fetch HTTP normal.

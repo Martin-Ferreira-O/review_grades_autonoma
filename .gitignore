@@ -17,3 +17,6 @@ PLAN.md
 .superpowers
 opencode.json
 docs
+AGENTS.md
+.ruff_cache
+.pytest_cache

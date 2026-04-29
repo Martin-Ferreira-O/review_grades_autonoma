@@ -8,7 +8,7 @@
   </head>
   <body>
     <main class="page">
-      <section class="hero">
+      <section class="hero{% if not has_history %} hero-without-meta{% endif %}">
         <div>
           <p class="eyebrow">UA Grades</p>
           <h1>Dashboard local de rendimiento academico</h1>
@@ -17,8 +17,15 @@
             pensada para detectar fortalezas, alertas y evolucion por semestre.
           </p>
           <div class="hero-actions comparison-entry-actions">
+            <button class="secondary-action fetch-action" id="fetchGradesButton" type="button">
+              Actualizar notas
+            </button>
             <a class="primary-action" href="{{ comparison_base_url }}">Ir a dashboard de comparacion</a>
             <a class="secondary-action" href="/comparison/sync">Subir mis datos / Sync</a>
+          </div>
+          <div class="fetch-feedback" id="fetchFeedback" aria-live="polite" hidden>
+            <strong id="fetchMessage"></strong>
+            <ul class="fetch-grades-list" id="fetchGradesList" hidden></ul>
           </div>
           <div class="comparison-entry-note card subtle-card">
             <div>
@@ -28,12 +35,8 @@
             <small class="meta-detail">Sincroniza desde este dashboard local y luego abre la vista remota con tus filtros.</small>
           </div>
         </div>
+        {% if has_history %}
         <div class="hero-meta">
-          <div class="meta-card">
-            <span class="meta-label">SQLite</span>
-            <code>{{ sqlite_path }}</code>
-          </div>
-          {% if has_history %}
           <div class="meta-card">
             <span class="meta-label">Ultima carga</span>
             <strong title="{{ generated_at_exact }}">{{ generated_at_relative }}</strong>
@@ -43,16 +46,15 @@
             <span class="meta-label">Ultimo periodo</span>
             <strong>{{ latest_term_label }}</strong>
           </div>
-          {% endif %}
         </div>
+        {% endif %}
       </section>
 
       {% if not has_history %}
       <section class="empty-state">
         <h2>No hay historial cargado aun</h2>
         <p>
-          Ejecuta <code>python main.py fetch</code> o <code>docker compose run --rm app python main.py fetch</code>
-          para llenar SQLite y luego recarga esta pagina.
+          Usa <strong>Actualizar notas</strong> para cargar tu historial desde Banner y llenar SQLite.
         </p>
       </section>
       {% else %}
@@ -357,6 +359,7 @@
       {% endif %}
     </main>
 
+    <script src="{{ url_for('static', path='/dashboard.js') }}?v={{ static_version }}"></script>
     {% if has_history %}
     <script>
       window.dashboardData = {

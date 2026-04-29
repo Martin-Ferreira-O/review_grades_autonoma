@@ -48,6 +48,10 @@ summary {
   cursor: pointer;
 }
 
+button:disabled {
+  cursor: not-allowed;
+}
+
 a {
   color: inherit;
   text-decoration: none;
@@ -84,6 +88,10 @@ code {
   grid-template-columns: 1.8fr 1fr;
   gap: 1rem;
   margin-bottom: 1.5rem;
+}
+
+.hero-without-meta {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .hero h1,
@@ -258,6 +266,53 @@ code {
 
 .comparison-entry-actions .secondary-action {
   min-width: 12rem;
+}
+
+.fetch-action {
+  font-family: "Fira Sans", Arial, sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.fetch-action:disabled {
+  border-color: rgba(148, 163, 184, 0.24);
+  background: rgba(30, 41, 59, 0.62);
+  color: rgba(226, 232, 240, 0.58);
+  transform: none;
+}
+
+.fetch-feedback {
+  margin-top: 0.85rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(96, 165, 250, 0.28);
+  border-radius: 0.85rem;
+  background: rgba(15, 23, 42, 0.66);
+  color: var(--text);
+}
+
+.fetch-feedback.success {
+  border-color: rgba(34, 197, 94, 0.32);
+  background: rgba(20, 83, 45, 0.24);
+}
+
+.fetch-feedback.error {
+  border-color: rgba(249, 115, 22, 0.42);
+  background: rgba(124, 45, 18, 0.22);
+}
+
+.fetch-feedback.loading {
+  border-color: rgba(245, 158, 11, 0.36);
+}
+
+.fetch-grades-list {
+  margin: 0.75rem 0 0;
+  padding-left: 1.2rem;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.fetch-grades-list strong {
+  color: var(--text);
 }
 
 .comparison-entry-note strong {

@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 from dataclasses import asdict
+from datetime import datetime, timezone
+from math import ceil
 from pathlib import Path
 from urllib.parse import parse_qs
 from urllib.parse import quote
@@ -15,9 +18,11 @@ from uac_grades.application.services import build_comparison_sync_payload, build
 from uac_grades.infrastructure.config import Settings
 from uac_grades.infrastructure.comparison import ComparisonSyncClient
 from uac_grades.infrastructure.persistence import ComparisonIdentityStore, SqliteHistoryStore
+from uac_grades.interfaces.banner_fetch import BannerFetchResult, fetch_banner_history
 
 TEMPLATES_DIR = Path(__file__).with_name("templates")
 STATIC_DIR = Path(__file__).with_name("static")
+FETCH_COOLDOWN_SECONDS = 60
 
 
 def _static_version() -> str:
@@ -40,18 +45,60 @@ def _downstream_error_detail(error: httpx.HTTPStatusError):
     return f"Comparison sync failed with status {error.response.status_code}"
 
 
+def _fetch_cooldown_remaining(last_success_at: datetime | None) -> int:
+    if last_success_at is None:
+        return 0
+
+    elapsed = datetime.now(timezone.utc) - last_success_at
+    return max(0, ceil(FETCH_COOLDOWN_SECONDS - elapsed.total_seconds()))
+
+
+def _fetch_result_message(result: BannerFetchResult) -> str:
+    if result.first_fetch:
+        return "Notas cargadas."
+    if result.new_grades:
+        count = len(result.new_grades)
+        return (
+            "Se encontro 1 nota nueva o actualizada."
+            if count == 1
+            else f"Se encontraron {count} notas nuevas o actualizadas."
+        )
+    return "No hubo notas nuevas."
+
+
+def _fetch_result_payload(result: BannerFetchResult) -> dict:
+    return {
+        "message": _fetch_result_message(result),
+        "first_fetch": result.first_fetch,
+        "full_refresh": result.full_refresh,
+        "new_grades_count": len(result.new_grades),
+        "new_grades": [grade.to_dict() for grade in result.new_grades],
+        "run_id": result.run_id,
+        "json_path": str(result.json_path),
+        "sqlite_path": str(result.database_path),
+    }
+
+
 def create_app(
     settings: Settings | None = None,
     *,
     history_store=None,
     comparison_client=None,
     identity_store=None,
+    banner_fetcher=None,
 ) -> FastAPI:
     settings = settings or Settings.load()
     store = history_store or SqliteHistoryStore(settings.storage.sqlite_path)
     comparison_client = comparison_client or ComparisonSyncClient(base_url=settings.comparison.base_url)
     identity_store = identity_store or ComparisonIdentityStore(settings.comparison.identity_path)
     templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+    fetch_lock = asyncio.Lock()
+    last_fetch_success = {"at": None}
+
+    async def default_banner_fetcher() -> BannerFetchResult:
+        return await fetch_banner_history(settings, history_store=store)
+
+    banner_fetcher = banner_fetcher or default_banner_fetcher
 
     app = FastAPI(title="UA Grades Dashboard")
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
@@ -100,6 +147,48 @@ def create_app(
             "cards": context["cards"],
             "term_summaries": context["term_summaries"],
         }
+
+    @app.get("/api/fetch/status")
+    async def fetch_status() -> dict:
+        remaining = _fetch_cooldown_remaining(last_fetch_success["at"])
+        return {
+            "available": not fetch_lock.locked() and remaining == 0,
+            "running": fetch_lock.locked(),
+            "cooldown_seconds": remaining,
+        }
+
+    @app.post("/api/fetch")
+    async def api_fetch() -> dict:
+        remaining = _fetch_cooldown_remaining(last_fetch_success["at"])
+        if fetch_lock.locked():
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "message": "Ya hay una actualizacion de notas en curso.",
+                    "running": True,
+                    "cooldown_seconds": remaining,
+                },
+            )
+        if remaining > 0:
+            raise HTTPException(
+                status_code=429,
+                detail={
+                    "message": f"Espera {remaining} segundos antes de volver a actualizar.",
+                    "running": False,
+                    "cooldown_seconds": remaining,
+                },
+            )
+
+        async with fetch_lock:
+            try:
+                result = await banner_fetcher()
+            except Exception as error:
+                raise HTTPException(status_code=500, detail=str(error)) from error
+
+        last_fetch_success["at"] = datetime.now(timezone.utc)
+        payload = _fetch_result_payload(result)
+        payload["cooldown_seconds"] = FETCH_COOLDOWN_SECONDS
+        return payload
 
     @app.get("/api/comparison/link-status")
     async def comparison_link_status() -> dict:
