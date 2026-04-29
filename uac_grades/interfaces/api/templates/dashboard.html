@@ -3,108 +3,231 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Dashboard UA</title>
+    <title>UA Grades</title>
     <link rel="stylesheet" href="{{ url_for('static', path='/styles.css') }}?v={{ static_version }}" />
   </head>
   <body>
-    <main class="page">
-      <section class="hero{% if not has_history %} hero-without-meta{% endif %}">
-        <div>
-          <p class="eyebrow">UA Grades</p>
-          <h1>Dashboard local de rendimiento academico</h1>
+    <header class="topbar reveal">
+      <a class="brand-mark" href="#inicio" aria-label="UA Grades inicio">
+        <span class="brand-glyph" aria-hidden="true">UA</span>
+        <span>Grades</span>
+      </a>
+      <nav class="topnav" aria-label="Secciones principales">
+        <a href="#semestre">Semestre</a>
+        <a href="#asistencia">Asistencia</a>
+        <a href="#graficos">Graficos</a>
+        <a href="#historial">Historial</a>
+      </nav>
+    </header>
+
+    <main class="page" id="inicio">
+      <section class="hero{% if not has_history %} hero-without-meta{% endif %} reveal">
+        <div class="hero-copy-block">
+          <p class="eyebrow">Dashboard local</p>
+          <h1>Tu semestre en una vista clara.</h1>
           <p class="hero-copy">
-            Historial consolidado desde Banner con SQLite local para consulta rapida y una vista
-            pensada para detectar fortalezas, alertas y evolucion por semestre.
+            Notas, asistencia y alertas desde Banner, ordenadas para decidir rapido donde estudiar,
+            donde puedes respirar y que conviene actualizar hoy.
           </p>
           <div class="hero-actions comparison-entry-actions">
-            <button class="secondary-action fetch-action" id="fetchGradesButton" type="button">
+            <button class="primary-action fetch-action" id="fetchGradesButton" type="button">
+              <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M21 12a9 9 0 0 1-15.3 6.4" />
+                <path d="M3 12A9 9 0 0 1 18.3 5.6" />
+                <path d="M18 2v4h4" />
+                <path d="M6 22v-4H2" />
+              </svg>
               Actualizar notas
             </button>
-            <a class="primary-action" href="{{ comparison_base_url }}">Ir a dashboard de comparacion</a>
-            <a class="secondary-action" href="/comparison/sync">Subir mis datos / Sync</a>
+            <a class="secondary-action" href="{{ comparison_base_url }}">
+              <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M7 17 17 7" />
+                <path d="M8 7h9v9" />
+              </svg>
+              Ir a dashboard de comparacion
+            </a>
+            <a class="ghost-action" href="/comparison/sync">
+              <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 3v12" />
+                <path d="m7 8 5-5 5 5" />
+                <path d="M5 21h14" />
+              </svg>
+              Subir mis datos / Sync
+            </a>
           </div>
           <div class="fetch-feedback" id="fetchFeedback" aria-live="polite" hidden>
             <strong id="fetchMessage"></strong>
             <ul class="fetch-grades-list" id="fetchGradesList" hidden></ul>
           </div>
-          <div class="comparison-entry-note card subtle-card">
+        </div>
+
+        <aside class="hero-status" aria-label="Estado general">
+          {% if has_history and current_term %}
+          <div class="status-kicker">Ahora</div>
+          <strong>{{ current_term.label }}</strong>
+          <div class="hero-score">
+            {% if current_term.current_average_value is not none %}
+            <span class="score-number count-up" data-count="{{ current_term.current_average_value or 0 }}" data-decimals="2">{{ current_term.current_average_text }}</span>
+            {% else %}
+            <span class="score-number">{{ current_term.current_average_text }}</span>
+            {% endif %}
+            <span class="score-label">promedio parcial</span>
+          </div>
+          <div class="status-grid">
             <div>
-              <span class="meta-label">Comparacion remota</span>
-              <strong>Compara tu promedio por ramo, semestre e historico con el grupo sincronizado.</strong>
+              <span>{{ current_term.weighted_progress_text }}</span>
+              <small>evaluado</small>
             </div>
-            <small class="meta-detail">Sincroniza desde este dashboard local y luego abre la vista remota con tus filtros.</small>
+            <div>
+              <span>{{ current_term.attention_count }}</span>
+              <small>en alerta</small>
+            </div>
+            <div>
+              <span>{{ current_term.relaxed_count }}</span>
+              <small>comodos</small>
+            </div>
           </div>
-        </div>
-        {% if has_history %}
-        <div class="hero-meta">
-          <div class="meta-card">
-            <span class="meta-label">Ultima carga</span>
-            <strong title="{{ generated_at_exact }}">{{ generated_at_relative }}</strong>
-            <small class="meta-detail">{{ generated_at_exact }}</small>
+          <small class="meta-detail">Notas actualizadas {{ generated_at_relative }}</small>
+          {% elif has_history %}
+          <div class="status-kicker">Historial</div>
+          <strong>{{ latest_term_label }}</strong>
+          <div class="hero-score">
+            <span class="score-number">{{ cards.overall_average }}</span>
+            <span class="score-label">promedio global</span>
           </div>
-          <div class="meta-card">
-            <span class="meta-label">Ultimo periodo</span>
-            <strong>{{ latest_term_label }}</strong>
+          <div class="status-grid">
+            <div>
+              <span>{{ cards.terms }}</span>
+              <small>periodos</small>
+            </div>
+            <div>
+              <span>{{ cards.courses }}</span>
+              <small>cursos</small>
+            </div>
+            <div>
+              <span>{{ cards.graded_courses }}</span>
+              <small>con nota</small>
+            </div>
           </div>
-        </div>
-        {% endif %}
+          <small class="meta-detail">Ultima carga {{ generated_at_relative }}</small>
+          {% else %}
+          <div class="status-kicker">Primer paso</div>
+          <strong>Carga tu historial desde Banner</strong>
+          <p>
+            Cuando existan datos locales, esta portada mostrara promedio, riesgo y asistencia del
+            semestre activo.
+          </p>
+          <small class="meta-detail">SQLite local listo en {{ sqlite_path }}</small>
+          {% endif %}
+        </aside>
       </section>
 
       {% if not has_history %}
-      <section class="empty-state">
-        <h2>No hay historial cargado aun</h2>
-        <p>
-          Usa <strong>Actualizar notas</strong> para cargar tu historial desde Banner y llenar SQLite.
-        </p>
+      <section class="empty-state reveal">
+        <div>
+          <p class="eyebrow">Sin datos locales</p>
+          <h2>No hay historial cargado aun</h2>
+          <p>
+            Usa <strong>Actualizar notas</strong> para cargar tu historial desde Banner y llenar
+            SQLite. Despues veras notas, asistencia y graficos en esta misma pagina.
+          </p>
+        </div>
       </section>
       {% else %}
       {% if current_term %}
-      <section class="card section-card spotlight-card">
-        <div class="card-header">
-          <h2>Semestre actual</h2>
+      <section class="section-shell reveal" id="semestre">
+        <div class="section-heading">
+          <p class="eyebrow">Semestre actual</p>
+          <h2>Lo importante primero</h2>
           <p>
-            {{ current_term.label }}. Aqui ves donde debes poner mas atencion, donde vas comodo y que
-            promedio necesitas en lo pendiente para aprobar con 4.0 o cerrar tranquilo con 5.5.
+            {{ current_term.label }}. La lectura parte por progreso, alertas y lo que necesitas en
+            lo pendiente para llegar a 4.0 o cerrar mas tranquilo con 5.5.
           </p>
         </div>
-        <div class="cards-grid current-cards-grid">
-          <article class="card metric-card">
+
+        <div class="metric-strip">
+          <article class="metric-card">
             <span class="metric-label">Promedio parcial</span>
+            {% if current_term.current_average_value is not none %}
+            <strong class="count-up" data-count="{{ current_term.current_average_value or 0 }}" data-decimals="2">{{ current_term.current_average_text }}</strong>
+            {% else %}
             <strong>{{ current_term.current_average_text }}</strong>
+            {% endif %}
           </article>
-          <article class="card metric-card">
+          <article class="metric-card">
             <span class="metric-label">Avance evaluado</span>
             <strong>{{ current_term.weighted_progress_text }}</strong>
           </article>
-          <article class="card metric-card">
+          <article class="metric-card">
             <span class="metric-label">Evaluaciones cargadas</span>
             <strong>{{ current_term.graded_components_count }}/{{ current_term.total_components_count }}</strong>
           </article>
-          <article class="card metric-card danger">
+          <article class="metric-card danger">
             <span class="metric-label">Mas atencion</span>
-            <strong>{{ current_term.attention_count }}</strong>
+            <strong class="count-up" data-count="{{ current_term.attention_count }}">{{ current_term.attention_count }}</strong>
           </article>
-          <article class="card metric-card">
+          <article class="metric-card info">
             <span class="metric-label">Vigilancia</span>
-            <strong>{{ current_term.watch_count }}</strong>
+            <strong class="count-up" data-count="{{ current_term.watch_count }}">{{ current_term.watch_count }}</strong>
           </article>
-          <article class="card metric-card success">
+          <article class="metric-card success">
             <span class="metric-label">Puedes relajarte</span>
-            <strong>{{ current_term.relaxed_count }}</strong>
+            <strong class="count-up" data-count="{{ current_term.relaxed_count }}">{{ current_term.relaxed_count }}</strong>
           </article>
         </div>
       </section>
 
-      <section class="card section-card attendance-card">
-        <div class="card-header attendance-header">
+      <section class="section-shell reveal">
+        <div class="section-heading compact-heading">
+          <p class="eyebrow">Que hacer ahora</p>
+          <h2>Ramos ordenados por presion</h2>
+          <p>
+            Los primeros cursos son los que mas conviene revisar. Cada tarjeta resume el promedio
+            actual, el avance y el promedio que falta para pasar.
+          </p>
+        </div>
+
+        <div class="priority-grid">
+          {% for course in current_term.courses %}
+          {% if loop.index <= 4 %}
+          <article class="priority-card {{ course.attention_variant }}">
+            <div class="priority-card-head">
+              <div>
+                <span class="course-code">{{ course.code }}</span>
+                <h3>{{ course.title }}</h3>
+              </div>
+              <span class="status-pill {{ course.attention_variant }}">{{ course.attention_label }}</span>
+            </div>
+            <p>{{ course.summary_message }}</p>
+            <div class="priority-metrics">
+              <span>Actual <strong>{{ course.current_average_text }}</strong></span>
+              <span>Avance <strong>{{ course.evaluated_weight_text }}</strong></span>
+              <span>Para 4.0 <strong>{{ course.required_to_pass.text }}</strong></span>
+              <span>Para 5.5 <strong>{{ course.required_to_comfort.text }}</strong></span>
+            </div>
+          </article>
+          {% endif %}
+          {% endfor %}
+        </div>
+      </section>
+
+      <section class="section-shell reveal" id="asistencia">
+        <div class="section-heading action-heading">
           <div>
-            <h2>Asistencia</h2>
+            <p class="eyebrow">Asistencia</p>
+            <h2>Margen de faltas por ramo</h2>
             <p>
-              Margen de ausencias por ramo segun tu asistencia actual, el minimo requerido y un
-              semestre de 18 semanas.
+              Calculado con tu asistencia actual, el minimo detectado en Banner y un semestre de 18
+              semanas.
             </p>
           </div>
           <button class="secondary-action fetch-action" id="fetchAttendanceButton" type="button">
+            <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M21 12a9 9 0 0 1-15.3 6.4" />
+              <path d="M3 12A9 9 0 0 1 18.3 5.6" />
+              <path d="M18 2v4h4" />
+              <path d="M6 22v-4H2" />
+            </svg>
             Actualizar asistencia
           </button>
         </div>
@@ -113,94 +236,119 @@
         </div>
 
         {% if attendance and attendance.available %}
-        <div class="cards-grid attendance-cards-grid">
-          <article class="card metric-card">
-            <span class="metric-label">Cursos</span>
-            <strong>{{ attendance.courses_count }}</strong>
-          </article>
-          <article class="card metric-card success">
-            <span class="metric-label">Con margen</span>
-            <strong>{{ attendance.margin_count }}</strong>
-          </article>
-          <article class="card metric-card">
-            <span class="metric-label">Ajustados</span>
-            <strong>{{ attendance.tight_count }}</strong>
-          </article>
-          <article class="card metric-card danger">
-            <span class="metric-label">No faltes mas</span>
-            <strong>{{ attendance.no_more_count }}</strong>
-          </article>
-          <article class="card metric-card danger">
-            <span class="metric-label">Bajo minimo</span>
-            <strong>{{ attendance.below_count }}</strong>
-          </article>
-          <article class="card metric-card">
-            <span class="metric-label">Clases</span>
-            <strong>{{ attendance.sections_count }}</strong>
-          </article>
+        <div class="attendance-layout">
+          <div class="chart-panel large-panel">
+            <div class="panel-heading">
+              <h3>Cuanto margen queda</h3>
+              <p>
+                Valores negativos indican que el ramo ya esta bajo el minimo detectado.
+              </p>
+            </div>
+            <canvas id="attendanceMarginChart" height="280"></canvas>
+          </div>
+          <div class="attendance-summary">
+            <article class="metric-card success">
+              <span class="metric-label">Con margen</span>
+              <strong>{{ attendance.margin_count }}</strong>
+            </article>
+            <article class="metric-card info">
+              <span class="metric-label">Ajustados</span>
+              <strong>{{ attendance.tight_count }}</strong>
+            </article>
+            <article class="metric-card danger">
+              <span class="metric-label">No faltes mas</span>
+              <strong>{{ attendance.no_more_count }}</strong>
+            </article>
+            <article class="metric-card danger">
+              <span class="metric-label">Bajo minimo</span>
+              <strong>{{ attendance.below_count }}</strong>
+            </article>
+          </div>
         </div>
+
         <p class="attendance-updated">
           Actualizado {{ attendance.generated_at_relative }}
           <span title="{{ attendance.generated_at_exact }}">{{ attendance.generated_at_exact }}</span>
         </p>
 
-        <div class="table-wrap attendance-table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Ramo</th>
-                <th>Asistencia</th>
-                <th>Minimo</th>
-                <th>Puedes faltar</th>
-                <th>Ausencias</th>
-                <th>Horarios</th>
-                <th>Estado</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for course in attendance.courses %}
-              <tr>
-                <td>
-                  <strong>{{ course.title }}</strong>
-                  <div class="table-note">{{ course.code }}</div>
-                </td>
-                <td>
-                  {{ course.current_percentage_text }}
-                  <div class="table-note">{{ course.attended_sessions }}/{{ course.registered_sessions }} registradas</div>
-                </td>
-                <td>{{ course.minimum_percentage_text }}</td>
-                <td>
-                  <strong>{{ course.classes_can_miss_text }}</strong>
-                  <div class="table-note">{{ course.max_absences_text }} maximas en {{ course.effective_total_classes }}</div>
-                </td>
-                <td>{{ course.current_absences }}</td>
-                <td>
-                  {% for section in course.sections %}
-                  <div class="table-note">
-                    NRC {{ section.course_reference_number }} · {{ section.section }} · {{ section.days_text }} {{ section.time_text }}
-                  </div>
-                  {% endfor %}
-                </td>
-                <td>
-                  <span class="status-pill {{ course.status_variant }}">{{ course.status }}</span>
-                </td>
-              </tr>
-              {% if course.recent_absences %}
-              <tr class="attendance-absence-row">
-                <td colspan="7">
-                  <strong>Ultimas ausencias:</strong>
-                  {% for absence in course.recent_absences %}
-                  <span>
-                    {{ absence.meeting_date }} · NRC {{ absence.course_reference_number }} · {{ absence.hours }} · {{ absence.status }}
-                  </span>
-                  {% endfor %}
-                </td>
-              </tr>
-              {% endif %}
-              {% endfor %}
-            </tbody>
-          </table>
+        <div class="attendance-course-grid">
+          {% for course in attendance.courses %}
+          <article class="attendance-course {{ course.status_variant }}">
+            <div>
+              <span class="course-code">{{ course.code }}</span>
+              <h3>{{ course.title }}</h3>
+            </div>
+            <span class="status-pill {{ course.status_variant }}">{{ course.status }}</span>
+            <div class="attendance-course-metrics">
+              <span>Asistencia <strong>{{ course.current_percentage_text }}</strong></span>
+              <span>Minimo <strong>{{ course.minimum_percentage_text }}</strong></span>
+              <span>Puedes faltar <strong>{{ course.classes_can_miss_text }}</strong></span>
+              <span>Ausencias <strong>{{ course.current_absences }}</strong></span>
+            </div>
+          </article>
+          {% endfor %}
         </div>
+
+        <details class="detail-drawer">
+          <summary>Ver horarios y ultimas ausencias</summary>
+          <div class="table-wrap attendance-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Ramo</th>
+                  <th>Asistencia</th>
+                  <th>Minimo</th>
+                  <th>Puedes faltar</th>
+                  <th>Ausencias</th>
+                  <th>Horarios</th>
+                  <th>Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for course in attendance.courses %}
+                <tr>
+                  <td>
+                    <strong>{{ course.title }}</strong>
+                    <div class="table-note">{{ course.code }}</div>
+                  </td>
+                  <td>
+                    {{ course.current_percentage_text }}
+                    <div class="table-note">{{ course.attended_sessions }}/{{ course.registered_sessions }} registradas</div>
+                  </td>
+                  <td>{{ course.minimum_percentage_text }}</td>
+                  <td>
+                    <strong>{{ course.classes_can_miss_text }}</strong>
+                    <div class="table-note">{{ course.max_absences_text }} maximas en {{ course.effective_total_classes }}</div>
+                  </td>
+                  <td>{{ course.current_absences }}</td>
+                  <td>
+                    {% for section in course.sections %}
+                    <div class="table-note">
+                      NRC {{ section.course_reference_number }} | {{ section.section }} | {{ section.days_text }} {{ section.time_text }}
+                    </div>
+                    {% endfor %}
+                  </td>
+                  <td>
+                    <span class="status-pill {{ course.status_variant }}">{{ course.status }}</span>
+                  </td>
+                </tr>
+                {% if course.recent_absences %}
+                <tr class="attendance-absence-row">
+                  <td colspan="7">
+                    <strong>Ultimas ausencias:</strong>
+                    {% for absence in course.recent_absences %}
+                    <span>
+                      {{ absence.meeting_date }} | NRC {{ absence.course_reference_number }} | {{ absence.hours }} | {{ absence.status }}
+                    </span>
+                    {% endfor %}
+                  </td>
+                </tr>
+                {% endif %}
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </details>
         {% else %}
         <div class="empty-inline-state">
           <h3>Sin asistencia cargada</h3>
@@ -209,67 +357,55 @@
         {% endif %}
       </section>
 
-      <section class="card section-card">
-        <div class="card-header">
-          <h2>Que necesitas en lo que falta</h2>
+      <section class="section-shell reveal" id="graficos">
+        <div class="section-heading compact-heading">
+          <p class="eyebrow">Graficos</p>
+          <h2>Progreso, presion y tendencia</h2>
           <p>
-            Si ya tienes notas cargadas, esta tabla te dice que promedio necesitas en lo pendiente para
-            pasar con 4.0 y para cerrar sin problemas con 5.5.
+            Tres lecturas complementarias: cuanto se ha evaluado, que tan exigente esta lo pendiente
+            y como viene el historial por periodo.
           </p>
         </div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Ramo</th>
-                <th>Promedio actual</th>
-                <th>Avance</th>
-                <th>Para 4.0</th>
-                <th>Para 5.5</th>
-                <th>Proyeccion</th>
-                <th>Estado</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for course in current_term.courses %}
-              <tr>
-                <td>
-                  <strong>{{ course.title }}</strong>
-                  <div class="table-note">{{ course.code }}</div>
-                  <div class="table-note">{{ course.summary_message }}</div>
-                </td>
-                <td>{{ course.current_average_text }}</td>
-                <td>
-                  {{ course.evaluated_weight_text }}
-                  <div class="table-note">{{ course.graded_components_count }}/{{ course.weighted_components_count }} evaluaciones</div>
-                </td>
-                <td>{{ course.required_to_pass.text }}</td>
-                <td>{{ course.required_to_comfort.text }}</td>
-                <td>{{ course.projected_final_text }}</td>
-                <td>
-                  <span class="status-pill {{ course.attention_variant }}">
-                    {{ course.attention_label }}
-                  </span>
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
+
+        <div class="charts-grid">
+          <article class="chart-panel">
+            <div class="panel-heading">
+              <h3>Avance evaluado</h3>
+              <p>Peso ya calificado por ramo.</p>
+            </div>
+            <canvas id="courseProgressChart" height="260"></canvas>
+          </article>
+          <article class="chart-panel">
+            <div class="panel-heading">
+              <h3>Presion para pasar</h3>
+              <p>Promedio requerido en lo pendiente para llegar a 4.0.</p>
+            </div>
+            <canvas id="coursePressureChart" height="260"></canvas>
+          </article>
+          <article class="chart-panel">
+            <div class="panel-heading">
+              <h3>Evolucion del promedio</h3>
+              <p>Vista por periodo y nivel.</p>
+            </div>
+            <canvas id="termTrendChart" height="260"></canvas>
+          </article>
         </div>
       </section>
 
-      <section class="card section-card">
-        <div class="card-header">
-          <h2>Detalle por ramo</h2>
-          <p>Componentes, pesos y notas del semestre actual para revisar cada ramo en detalle.</p>
+      <section class="section-shell reveal">
+        <div class="section-heading compact-heading">
+          <p class="eyebrow">Detalle academico</p>
+          <h2>Componentes del semestre</h2>
+          <p>Los detalles quedan plegados para que la vista principal siga siendo liviana.</p>
         </div>
+
         <div class="course-details-list">
           {% for course in current_term.courses %}
           <details class="course-detail">
             <summary>
               <div>
+                <span class="course-code">{{ course.code }}</span>
                 <strong>{{ course.title }}</strong>
-                <div class="table-note">{{ course.code }}</div>
               </div>
               <div class="detail-summary-meta">
                 <span>{{ course.current_average_text }}</span>
@@ -330,7 +466,7 @@
                       <div class="subcomponent-list">
                         {% for subcomponent in component.subcomponents %}
                         <div class="subcomponent-item">
-                          {{ subcomponent.name }} · {{ subcomponent.weight_text }} · {{ subcomponent.grade_text }}
+                          {{ subcomponent.name }} | {{ subcomponent.weight_text }} | {{ subcomponent.grade_text }}
                         </div>
                         {% endfor %}
                       </div>
@@ -355,67 +491,57 @@
       </section>
       {% endif %}
 
-      <section class="section-heading">
-        <h2>Contexto historico</h2>
-        <p>Usa este bloque como referencia general. La decision diaria del semestre actual esta arriba.</p>
-      </section>
-
-      <section class="cards-grid">
-        <article class="card metric-card">
-          <span class="metric-label">Promedio global</span>
-          <strong>{{ cards.overall_average }}</strong>
-        </article>
-        <article class="card metric-card">
-          <span class="metric-label">Periodos</span>
-          <strong>{{ cards.terms }}</strong>
-        </article>
-        <article class="card metric-card">
-          <span class="metric-label">Cursos totales</span>
-          <strong>{{ cards.courses }}</strong>
-        </article>
-        <article class="card metric-card">
-          <span class="metric-label">Cursos con nota</span>
-          <strong>{{ cards.graded_courses }}</strong>
-        </article>
-        <article class="card metric-card success">
-          <span class="metric-label">Aprobados</span>
-          <strong>{{ cards.passed_courses }}</strong>
-        </article>
-        <article class="card metric-card danger">
-          <span class="metric-label">Bajo 4.0</span>
-          <strong>{{ cards.failed_courses }}</strong>
-        </article>
-      </section>
-
-      <section class="charts-grid">
-        <article class="card chart-card">
-          <div class="card-header">
-            <h2>Evolucion del promedio</h2>
-            <p>Vista por periodo y nivel.</p>
-          </div>
-          <canvas id="termTrendChart" height="220"></canvas>
-        </article>
-        <article class="card chart-card">
-          <div class="card-header">
-            <h2>Mejores resultados</h2>
-            <p>Top 5 cursos con mayor nota.</p>
-          </div>
-          <canvas id="bestCoursesChart" height="220"></canvas>
-        </article>
-        <article class="card chart-card">
-          <div class="card-header">
-            <h2>Alertas academicas</h2>
-            <p>Cursos con menor nota numerica.</p>
-          </div>
-          <canvas id="worstCoursesChart" height="220"></canvas>
-        </article>
-      </section>
-
-      <section class="card section-card">
-        <div class="card-header">
-          <h2>Resumen por periodo</h2>
-          <p>Promedio, volumen y distribucion basica.</p>
+      <section class="section-shell reveal" id="historial">
+        <div class="section-heading compact-heading">
+          <p class="eyebrow">Contexto historico</p>
+          <h2>Referencia general</h2>
+          <p>El historial queda abajo para comparar trayectoria sin tapar las decisiones del semestre.</p>
         </div>
+
+        <div class="metric-strip history-strip">
+          <article class="metric-card">
+            <span class="metric-label">Promedio global</span>
+            <strong>{{ cards.overall_average }}</strong>
+          </article>
+          <article class="metric-card">
+            <span class="metric-label">Periodos</span>
+            <strong>{{ cards.terms }}</strong>
+          </article>
+          <article class="metric-card">
+            <span class="metric-label">Cursos totales</span>
+            <strong>{{ cards.courses }}</strong>
+          </article>
+          <article class="metric-card">
+            <span class="metric-label">Cursos con nota</span>
+            <strong>{{ cards.graded_courses }}</strong>
+          </article>
+          <article class="metric-card success">
+            <span class="metric-label">Aprobados</span>
+            <strong>{{ cards.passed_courses }}</strong>
+          </article>
+          <article class="metric-card danger">
+            <span class="metric-label">Bajo 4.0</span>
+            <strong>{{ cards.failed_courses }}</strong>
+          </article>
+        </div>
+
+        <div class="charts-grid compact-charts">
+          <article class="chart-panel">
+            <div class="panel-heading">
+              <h3>Mejores resultados</h3>
+              <p>Top 5 cursos con mayor nota.</p>
+            </div>
+            <canvas id="bestCoursesChart" height="240"></canvas>
+          </article>
+          <article class="chart-panel">
+            <div class="panel-heading">
+              <h3>Alertas academicas</h3>
+              <p>Cursos con menor nota numerica.</p>
+            </div>
+            <canvas id="worstCoursesChart" height="240"></canvas>
+          </article>
+        </div>
+
         <div class="term-grid">
           {% for term in term_summaries %}
           <article class="term-panel">
@@ -434,41 +560,38 @@
           </article>
           {% endfor %}
         </div>
-      </section>
 
-      <section class="card section-card">
-        <div class="card-header">
-          <h2>Detalle de cursos</h2>
-          <p>Tabla consolidada del historial cargado.</p>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Periodo</th>
-                <th>Codigo</th>
-                <th>Asignatura</th>
-                <th>Nota</th>
-                <th>Estado</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for course in courses %}
-              <tr>
-                <td>{{ course.term_label }}</td>
-                <td>{{ course.code }}</td>
-                <td>{{ course.title }}</td>
-                <td>{{ course.grade_text }}</td>
-                <td>
-                  <span class="status-pill {{ course.status_variant }}">
-                    {{ course.status }}
-                  </span>
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
+        <details class="detail-drawer">
+          <summary>Ver tabla consolidada del historial</summary>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Periodo</th>
+                  <th>Codigo</th>
+                  <th>Asignatura</th>
+                  <th>Nota</th>
+                  <th>Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for course in courses %}
+                <tr>
+                  <td>{{ course.term_label }}</td>
+                  <td>{{ course.code }}</td>
+                  <td>{{ course.title }}</td>
+                  <td>{{ course.grade_text }}</td>
+                  <td>
+                    <span class="status-pill {{ course.status_variant }}">
+                      {{ course.status }}
+                    </span>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </details>
       </section>
       {% endif %}
     </main>
@@ -483,6 +606,63 @@
         bestValues: {{ chart_data.best_values_json | safe }},
         worstLabels: {{ chart_data.worst_labels_json | safe }},
         worstValues: {{ chart_data.worst_values_json | safe }},
+        currentLabels: [
+          {% if current_term %}
+          {% for course in current_term.courses %}
+          {{ course.title | tojson }}{% if not loop.last %},{% endif %}
+          {% endfor %}
+          {% endif %}
+        ],
+        progressValues: [
+          {% if current_term %}
+          {% for course in current_term.courses %}
+          {% if course.evaluated_weight_value is not none %}{{ "%.2f"|format(course.evaluated_weight_value) }}{% else %}null{% endif %}{% if not loop.last %},{% endif %}
+          {% endfor %}
+          {% endif %}
+        ],
+        pressureValues: [
+          {% if current_term %}
+          {% for course in current_term.courses %}
+          {% if course.required_to_pass.state == "impossible" %}
+          7.1
+          {% elif course.required_to_pass.state == "achieved" %}
+          0
+          {% elif course.required_to_pass.value is not none %}
+          {{ "%.2f"|format(course.required_to_pass.value) }}
+          {% else %}
+          null
+          {% endif %}{% if not loop.last %},{% endif %}
+          {% endfor %}
+          {% endif %}
+        ],
+        pressureTexts: [
+          {% if current_term %}
+          {% for course in current_term.courses %}
+          {{ course.required_to_pass.text | tojson }}{% if not loop.last %},{% endif %}
+          {% endfor %}
+          {% endif %}
+        ],
+        attendanceLabels: [
+          {% if attendance and attendance.available %}
+          {% for course in attendance.courses %}
+          {{ course.title | tojson }}{% if not loop.last %},{% endif %}
+          {% endfor %}
+          {% endif %}
+        ],
+        attendanceMargins: [
+          {% if attendance and attendance.available %}
+          {% for course in attendance.courses %}
+          {% if course.classes_can_miss is not none %}{{ course.classes_can_miss }}{% else %}null{% endif %}{% if not loop.last %},{% endif %}
+          {% endfor %}
+          {% endif %}
+        ],
+        attendanceMarginTexts: [
+          {% if attendance and attendance.available %}
+          {% for course in attendance.courses %}
+          {{ course.classes_can_miss_text | tojson }}{% if not loop.last %},{% endif %}
+          {% endfor %}
+          {% endif %}
+        ],
       };
     </script>
     <script src="{{ url_for('static', path='/charts.js') }}?v={{ static_version }}"></script>

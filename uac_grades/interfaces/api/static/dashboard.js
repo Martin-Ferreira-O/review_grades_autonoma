@@ -353,3 +353,76 @@
   button.addEventListener("click", fetchAttendance);
   refreshStatus();
 })();
+
+(() => {
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const revealItems = Array.from(document.querySelectorAll(".reveal"));
+  const counters = Array.from(document.querySelectorAll(".count-up"));
+
+  function formatValue(value, decimals, suffix) {
+    const formatted = decimals > 0 ? value.toFixed(decimals) : String(Math.round(value));
+    return `${formatted}${suffix}`;
+  }
+
+  function runCounter(element) {
+    if (element.dataset.counted === "true") {
+      return;
+    }
+
+    const target = Number(element.dataset.count);
+    if (!Number.isFinite(target)) {
+      return;
+    }
+
+    element.dataset.counted = "true";
+    const decimals = Number(element.dataset.decimals || 0);
+    const suffix = element.dataset.suffix || "";
+
+    if (reducedMotion) {
+      element.textContent = formatValue(target, decimals, suffix);
+      return;
+    }
+
+    const duration = 700;
+    const startTime = performance.now();
+
+    function tick(now) {
+      const progress = Math.min((now - startTime) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      element.textContent = formatValue(target * eased, decimals, suffix);
+
+      if (progress < 1) {
+        window.requestAnimationFrame(tick);
+      }
+    }
+
+    window.requestAnimationFrame(tick);
+  }
+
+  function reveal(element) {
+    element.classList.add("is-visible");
+    element.querySelectorAll(".count-up").forEach(runCounter);
+  }
+
+  if (reducedMotion || !("IntersectionObserver" in window)) {
+    revealItems.forEach(reveal);
+    counters.forEach(runCounter);
+    return;
+  }
+
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) {
+          return;
+        }
+
+        reveal(entry.target);
+        observer.unobserve(entry.target);
+      });
+    },
+    { rootMargin: "0px 0px -10% 0px", threshold: 0.12 }
+  );
+
+  revealItems.forEach((element) => observer.observe(element));
+})();
