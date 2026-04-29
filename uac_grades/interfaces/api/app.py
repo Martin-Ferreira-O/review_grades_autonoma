@@ -14,10 +14,19 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from uac_grades.application.services import build_comparison_sync_payload, build_dashboard_context
+from uac_grades.application.services import (
+    build_attendance_dashboard_context,
+    build_comparison_sync_payload,
+    build_dashboard_context,
+)
 from uac_grades.infrastructure.config import Settings
 from uac_grades.infrastructure.comparison import ComparisonSyncClient
-from uac_grades.infrastructure.persistence import ComparisonIdentityStore, SqliteHistoryStore
+from uac_grades.infrastructure.persistence import (
+    ComparisonIdentityStore,
+    SqliteAttendanceStore,
+    SqliteHistoryStore,
+)
+from uac_grades.interfaces.attendance_fetch import AttendanceFetchResult, fetch_banner_attendance
 from uac_grades.interfaces.banner_fetch import BannerFetchResult, fetch_banner_history
 
 TEMPLATES_DIR = Path(__file__).with_name("templates")
@@ -79,6 +88,25 @@ def _fetch_result_payload(result: BannerFetchResult) -> dict:
     }
 
 
+def _attendance_fetch_result_message(result: AttendanceFetchResult) -> str:
+    sections_count = len(result.snapshot.sections)
+    if result.first_fetch:
+        return "Asistencia cargada."
+    if sections_count == 1:
+        return "Asistencia actualizada para 1 clase."
+    return f"Asistencia actualizada para {sections_count} clases."
+
+
+def _attendance_fetch_result_payload(result: AttendanceFetchResult) -> dict:
+    return {
+        "message": _attendance_fetch_result_message(result),
+        "first_fetch": result.first_fetch,
+        "sections_count": len(result.snapshot.sections),
+        "run_id": result.run_id,
+        "sqlite_path": str(result.database_path),
+    }
+
+
 def create_app(
     settings: Settings | None = None,
     *,
@@ -86,19 +114,33 @@ def create_app(
     comparison_client=None,
     identity_store=None,
     banner_fetcher=None,
+    attendance_store=None,
+    attendance_fetcher=None,
 ) -> FastAPI:
     settings = settings or Settings.load()
     store = history_store or SqliteHistoryStore(settings.storage.sqlite_path)
+    attendance_store = attendance_store or SqliteAttendanceStore(settings.storage.sqlite_path)
     comparison_client = comparison_client or ComparisonSyncClient(base_url=settings.comparison.base_url)
     identity_store = identity_store or ComparisonIdentityStore(settings.comparison.identity_path)
     templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
     fetch_lock = asyncio.Lock()
+    attendance_fetch_lock = asyncio.Lock()
     last_fetch_success = {"at": None}
+    last_attendance_fetch_success = {"at": None}
 
     async def default_banner_fetcher() -> BannerFetchResult:
         return await fetch_banner_history(settings, history_store=store)
 
     banner_fetcher = banner_fetcher or default_banner_fetcher
+
+    async def default_attendance_fetcher() -> AttendanceFetchResult:
+        return await fetch_banner_attendance(
+            settings,
+            history_store=store,
+            attendance_store=attendance_store,
+        )
+
+    attendance_fetcher = attendance_fetcher or default_attendance_fetcher
 
     app = FastAPI(title="UA Grades Dashboard")
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
@@ -148,12 +190,35 @@ def create_app(
             "term_summaries": context["term_summaries"],
         }
 
+    @app.get("/api/attendance")
+    async def api_attendance() -> dict:
+        history = store.load_latest()
+        if history is None or not history.snapshots:
+            raise HTTPException(status_code=404, detail="Primero debes cargar notas")
+
+        context = build_attendance_dashboard_context(
+            history.snapshots[-1],
+            attendance_store.load_latest(),
+        )
+        if context is None:
+            raise HTTPException(status_code=404, detail="Primero debes cargar notas")
+        return context
+
     @app.get("/api/fetch/status")
     async def fetch_status() -> dict:
         remaining = _fetch_cooldown_remaining(last_fetch_success["at"])
         return {
             "available": not fetch_lock.locked() and remaining == 0,
             "running": fetch_lock.locked(),
+            "cooldown_seconds": remaining,
+        }
+
+    @app.get("/api/attendance/fetch/status")
+    async def attendance_fetch_status() -> dict:
+        remaining = _fetch_cooldown_remaining(last_attendance_fetch_success["at"])
+        return {
+            "available": not attendance_fetch_lock.locked() and remaining == 0,
+            "running": attendance_fetch_lock.locked(),
             "cooldown_seconds": remaining,
         }
 
@@ -187,6 +252,43 @@ def create_app(
 
         last_fetch_success["at"] = datetime.now(timezone.utc)
         payload = _fetch_result_payload(result)
+        payload["cooldown_seconds"] = FETCH_COOLDOWN_SECONDS
+        return payload
+
+    @app.post("/api/attendance/fetch")
+    async def api_attendance_fetch() -> dict:
+        remaining = _fetch_cooldown_remaining(last_attendance_fetch_success["at"])
+        history = store.load_latest()
+        if history is None or not history.snapshots:
+            raise HTTPException(status_code=404, detail="Primero debes cargar notas")
+
+        if attendance_fetch_lock.locked():
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "message": "Ya hay una actualizacion de asistencia en curso.",
+                    "running": True,
+                    "cooldown_seconds": remaining,
+                },
+            )
+        if remaining > 0:
+            raise HTTPException(
+                status_code=429,
+                detail={
+                    "message": f"Espera {remaining} segundos antes de volver a actualizar asistencia.",
+                    "running": False,
+                    "cooldown_seconds": remaining,
+                },
+            )
+
+        async with attendance_fetch_lock:
+            try:
+                result = await attendance_fetcher()
+            except Exception as error:
+                raise HTTPException(status_code=500, detail=str(error)) from error
+
+        last_attendance_fetch_success["at"] = datetime.now(timezone.utc)
+        payload = _attendance_fetch_result_payload(result)
         payload["cooldown_seconds"] = FETCH_COOLDOWN_SECONDS
         return payload
 
@@ -260,6 +362,10 @@ def create_app(
 
         if history is not None:
             context.update(build_dashboard_context(history))
+            context["attendance"] = build_attendance_dashboard_context(
+                history.snapshots[-1] if history.snapshots else None,
+                attendance_store.load_latest(),
+            )
 
         return templates.TemplateResponse(request=request, name="dashboard.html", context=context)
 

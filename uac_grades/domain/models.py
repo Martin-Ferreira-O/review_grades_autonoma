@@ -233,3 +233,146 @@ class AcademicHistory:
             generated_at=str(payload.get("generated_at") or datetime.now(timezone.utc).isoformat()),
             snapshots=[GradeSnapshot.from_dict(snapshot) for snapshot in payload.get("snapshots") or []],
         )
+
+
+@dataclass(frozen=True)
+class AttendanceAbsenceDetail:
+    meeting_date: str
+    hours: Optional[str]
+    status: Optional[str]
+
+    def to_dict(self) -> dict:
+        return {
+            "fecha": self.meeting_date,
+            "horas": self.hours,
+            "estado": self.status,
+        }
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> "AttendanceAbsenceDetail":
+        return cls(
+            meeting_date=str(payload.get("fecha") or payload.get("meeting_date") or "").strip(),
+            hours=payload.get("horas") or payload.get("hours"),
+            status=payload.get("estado") or payload.get("status"),
+        )
+
+
+@dataclass(frozen=True)
+class AttendanceSection:
+    term_code: str
+    subject_code: str
+    course_number: str
+    course_reference_number: Optional[str]
+    section: Optional[str]
+    session_indicator: Optional[str]
+    section_title: str
+    subject_description: Optional[str]
+    schedule: list[str]
+    time: Optional[str]
+    section_meeting_id: Optional[str]
+    missed: int
+    percentage: Optional[float]
+    total_sessions: Optional[int]
+    sessions_attended: Optional[int]
+    class_cancelled: Optional[int]
+    absence_notified_count: Optional[int]
+    absences: list[AttendanceAbsenceDetail] = field(default_factory=list)
+
+    @property
+    def course_code(self) -> str:
+        return " ".join(part for part in (self.subject_code, self.course_number) if part)
+
+    def to_dict(self) -> dict:
+        return {
+            "periodo": self.term_code,
+            "materia": self.subject_code,
+            "curso": self.course_number,
+            "codigo": self.course_code,
+            "nrc": self.course_reference_number,
+            "seccion": self.section,
+            "sesion": self.session_indicator,
+            "titulo": self.section_title,
+            "descripcion_materia": self.subject_description,
+            "horario": self.schedule,
+            "hora": self.time,
+            "section_meeting_id": self.section_meeting_id,
+            "ausencias": self.missed,
+            "porcentaje": self.percentage,
+            "sesiones_totales": self.total_sessions,
+            "sesiones_presente": self.sessions_attended,
+            "clases_anuladas": self.class_cancelled,
+            "ausencias_notificadas": self.absence_notified_count,
+            "detalle_ausencias": [absence.to_dict() for absence in self.absences],
+        }
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> "AttendanceSection":
+        return cls(
+            term_code=str(payload.get("periodo") or payload.get("term_code") or "").strip(),
+            subject_code=str(payload.get("materia") or payload.get("subject_code") or "").strip(),
+            course_number=str(payload.get("curso") or payload.get("course_number") or "").strip(),
+            course_reference_number=payload.get("nrc") or payload.get("course_reference_number"),
+            section=payload.get("seccion") or payload.get("section"),
+            session_indicator=payload.get("sesion") or payload.get("session_indicator"),
+            section_title=str(payload.get("titulo") or payload.get("section_title") or "").strip(),
+            subject_description=payload.get("descripcion_materia") or payload.get("subject_description"),
+            schedule=list(payload.get("horario") or payload.get("schedule") or []),
+            time=payload.get("hora") or payload.get("time"),
+            section_meeting_id=payload.get("section_meeting_id"),
+            missed=int(payload.get("ausencias") if payload.get("ausencias") is not None else payload.get("missed") or 0),
+            percentage=(
+                float(payload.get("porcentaje") if payload.get("porcentaje") is not None else payload.get("percentage"))
+                if (payload.get("porcentaje") if payload.get("porcentaje") is not None else payload.get("percentage")) not in (None, "")
+                else None
+            ),
+            total_sessions=(
+                int(payload.get("sesiones_totales") if payload.get("sesiones_totales") is not None else payload.get("total_sessions"))
+                if (payload.get("sesiones_totales") if payload.get("sesiones_totales") is not None else payload.get("total_sessions")) not in (None, "")
+                else None
+            ),
+            sessions_attended=(
+                int(payload.get("sesiones_presente") if payload.get("sesiones_presente") is not None else payload.get("sessions_attended"))
+                if (payload.get("sesiones_presente") if payload.get("sesiones_presente") is not None else payload.get("sessions_attended")) not in (None, "")
+                else None
+            ),
+            class_cancelled=(
+                int(payload.get("clases_anuladas") if payload.get("clases_anuladas") is not None else payload.get("class_cancelled"))
+                if (payload.get("clases_anuladas") if payload.get("clases_anuladas") is not None else payload.get("class_cancelled")) not in (None, "")
+                else None
+            ),
+            absence_notified_count=(
+                int(payload.get("ausencias_notificadas") if payload.get("ausencias_notificadas") is not None else payload.get("absence_notified_count"))
+                if (payload.get("ausencias_notificadas") if payload.get("ausencias_notificadas") is not None else payload.get("absence_notified_count")) not in (None, "")
+                else None
+            ),
+            absences=[
+                AttendanceAbsenceDetail.from_dict(absence)
+                for absence in payload.get("detalle_ausencias") or payload.get("absences") or []
+            ],
+        )
+
+
+@dataclass(frozen=True)
+class AttendanceSnapshot:
+    term_code: str
+    sections: list[AttendanceSection]
+    generated_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+    def to_dict(self) -> dict:
+        return {
+            "generated_at": self.generated_at,
+            "term_code": self.term_code,
+            "sections_count": len(self.sections),
+            "sections": [section.to_dict() for section in self.sections],
+        }
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> "AttendanceSnapshot":
+        return cls(
+            generated_at=str(payload.get("generated_at") or datetime.now(timezone.utc).isoformat()),
+            term_code=str(payload.get("term_code") or payload.get("periodo") or "").strip(),
+            sections=[
+                AttendanceSection.from_dict(section)
+                for section in payload.get("sections") or payload.get("secciones") or []
+            ],
+        )

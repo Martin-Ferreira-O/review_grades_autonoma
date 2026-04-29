@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import httpx
 
-from uac_grades.domain.models import AcademicHistory, GradeSnapshot
+from uac_grades.domain.models import AcademicHistory, AttendanceSnapshot, GradeSnapshot
 from uac_grades.infrastructure.config.settings import Settings
 from uac_grades.infrastructure.persistence.debug_store import DebugArtifactStore
 from uac_grades.infrastructure.persistence.session_store import SessionStateStore
@@ -11,6 +11,7 @@ from .http_client import BannerHttpClient
 from .mappers import (
     banner_flag_to_bool,
     build_academic_history,
+    build_attendance_snapshot,
     build_course_label,
     build_snapshot,
     course_has_component_details,
@@ -25,6 +26,8 @@ class BannerGateway:
     _COURSES_ENDPOINT = "/StudentSelfService/studentGrades/courses"
     _COMPONENTS_ENDPOINT = "/StudentSelfService/componentDetails/componentDetails"
     _SUBCOMPONENTS_ENDPOINT = "/StudentSelfService/componentDetails/subComponentDetails"
+    _ATTENDANCE_SECTIONS_ENDPOINT = "/StudentSelfService/ssb/studentAttendanceTracking/getRegisteredSections"
+    _ATTENDANCE_DETAILS_ENDPOINT = "/StudentSelfService/ssb/studentAttendanceTracking/absenceDetails"
     _JSON_ACCEPT = "application/json, text/javascript, */*; q=0.01"
     _HTML_ACCEPT = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
 
@@ -94,6 +97,22 @@ class BannerGateway:
             finally:
                 self._persist_http_session(client)
 
+    async def fetch_attendance_snapshot(self, term_code: str) -> AttendanceSnapshot:
+        async with self._http_client.create_client() as client:
+            try:
+                await self._open_attendance_page(client)
+                sections_raw = await self._fetch_attendance_sections(client)
+                sections_raw = [
+                    section
+                    for section in sections_raw
+                    if str(section.get("termCode") or "").strip() == term_code
+                ]
+                enriched_sections = await self._enrich_attendance_sections(sections_raw, client)
+                await self._save_final_attendance_debug_artifacts(client)
+                return build_attendance_snapshot(term_code, enriched_sections)
+            finally:
+                self._persist_http_session(client)
+
     async def _open_grades_page(self, client: httpx.AsyncClient) -> None:
         print("📋 Navegando a calificaciones...")
         response = await self._fetch_grades_page_response(client)
@@ -102,16 +121,37 @@ class BannerGateway:
         self._debug_store.write_text("debug_notas_inicial.html", response.text)
         print("  💾 debug_notas_inicial.html guardado")
 
+    async def _open_attendance_page(self, client: httpx.AsyncClient) -> None:
+        print("📋 Navegando a asistencia...")
+        response = await self._fetch_attendance_page_response(client)
+        print(f"  → URL: {response.url}")
+
+        self._debug_store.write_text("debug_asistencia_inicial.html", response.text)
+        print("  💾 debug_asistencia_inicial.html guardado")
+
     async def _save_final_debug_artifacts(self, client: httpx.AsyncClient) -> None:
         response = await self._fetch_grades_page_response(client)
         self._debug_store.write_text("debug_notas_final.html", response.text)
         print("  💾 debug_notas_final.html guardado")
+
+    async def _save_final_attendance_debug_artifacts(self, client: httpx.AsyncClient) -> None:
+        response = await self._fetch_attendance_page_response(client)
+        self._debug_store.write_text("debug_asistencia_final.html", response.text)
+        print("  💾 debug_asistencia_final.html guardado")
 
     async def _fetch_grades_page_response(self, client: httpx.AsyncClient) -> httpx.Response:
         return await self._http_client.request(
             "GET",
             self._settings.urls.grades,
             headers=self._html_headers(),
+            client=client,
+        )
+
+    async def _fetch_attendance_page_response(self, client: httpx.AsyncClient) -> httpx.Response:
+        return await self._http_client.request(
+            "GET",
+            self._settings.urls.attendance,
+            headers=self._attendance_html_headers(),
             client=client,
         )
 
@@ -207,6 +247,19 @@ class BannerGateway:
             "X-Requested-With": "XMLHttpRequest",
         }
 
+    def _attendance_html_headers(self) -> dict[str, str]:
+        return {
+            "Accept": self._HTML_ACCEPT,
+            "Referer": self._settings.urls.attendance,
+        }
+
+    def _attendance_ajax_headers(self) -> dict[str, str]:
+        return {
+            "Accept": "application/json, text/plain, */*",
+            "Referer": self._settings.urls.attendance,
+            "X-Requested-With": "XMLHttpRequest",
+        }
+
     async def _fetch_courses(
         self,
         term_code: str,
@@ -238,6 +291,48 @@ class BannerGateway:
             raise RuntimeError("Banner devolvio cursos con un formato invalido")
 
         return courses
+
+    async def _fetch_attendance_sections(self, client: httpx.AsyncClient | None = None) -> list:
+        payload = await self._http_client.get_json(
+            self._ATTENDANCE_SECTIONS_ENDPOINT,
+            params={
+                "pageOffset": 0,
+                "pageMaxSize": self._settings.browser.page_size,
+                "sortColumn": "courseReferenceNumber",
+                "sortDirection": "asc",
+                "filterText": "",
+            },
+            headers=self._attendance_ajax_headers(),
+            client=client,
+        )
+
+        if not isinstance(payload, dict):
+            raise RuntimeError("Banner no devolvio un payload valido para asistencia")
+        if payload.get("success") is not True:
+            raise RuntimeError(f"Banner rechazo la consulta de asistencia: {payload}")
+
+        sections = payload.get("data", [])
+        if not isinstance(sections, list):
+            raise RuntimeError("Banner devolvio asistencia con un formato invalido")
+
+        return sections
+
+    async def _fetch_attendance_details(
+        self,
+        section_meeting_id: str,
+        client: httpx.AsyncClient | None = None,
+    ) -> dict:
+        payload = await self._http_client.get_json(
+            self._ATTENDANCE_DETAILS_ENDPOINT,
+            params={"sectionMeetingId": section_meeting_id},
+            headers=self._attendance_ajax_headers(),
+            client=client,
+        )
+
+        if not isinstance(payload, dict):
+            raise RuntimeError("Banner no devolvio un payload valido para detalle de asistencia")
+
+        return payload
 
     async def _fetch_course_components(self, course: dict, client: httpx.AsyncClient | None = None) -> list:
         payload = await self._http_client.get_json(
@@ -328,3 +423,32 @@ class BannerGateway:
             enriched_courses.append(enriched_course)
 
         return enriched_courses
+
+    async def _enrich_attendance_sections(
+        self,
+        sections: list,
+        client: httpx.AsyncClient | None = None,
+    ) -> list[tuple[dict, dict | None]]:
+        enriched_sections = []
+        total = len(sections)
+
+        for index, section in enumerate(sections, 1):
+            section_meeting_id = section.get("sectionMeetingId")
+            details = None
+
+            if section_meeting_id not in (None, ""):
+                print(
+                    "  → Obteniendo asistencia "
+                    f"[{index}/{total}] {build_course_label(section)}"
+                )
+                try:
+                    details = await self._fetch_attendance_details(str(section_meeting_id), client)
+                except Exception as error:
+                    print(
+                        "  ⚠️  No se pudo obtener detalle de asistencia "
+                        f"{build_course_label(section)}: {error}"
+                    )
+
+            enriched_sections.append((section, details))
+
+        return enriched_sections

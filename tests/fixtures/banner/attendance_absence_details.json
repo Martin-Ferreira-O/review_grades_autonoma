@@ -1,0 +1,34 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/StudentSelfService/ssb/studentAttendanceTracking/absenceDetails",
+    "query": {
+      "sectionMeetingId": "292484"
+    },
+    "headers": {
+      "x-requested-with": "XMLHttpRequest"
+    }
+  },
+  "response": {
+    "body": {
+      "absenceDetails": [
+        {
+          "meetingDate": "23-Apr-2026",
+          "hours": "01:20",
+          "status": "Ausente"
+        },
+        {
+          "meetingDate": "16-Apr-2026",
+          "hours": "01:20",
+          "status": "Ausente"
+        }
+      ],
+      "missed": 2,
+      "percentage": 75.0,
+      "totalSessions": 8,
+      "sessionAttended": 6,
+      "classCancelled": 0,
+      "absenceNotifiedCount": 0
+    }
+  }
+}

@@ -1,0 +1,74 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/StudentSelfService/ssb/studentAttendanceTracking/getRegisteredSections",
+    "query": {
+      "pageOffset": "0",
+      "pageMaxSize": "200",
+      "sortColumn": "courseReferenceNumber",
+      "sortDirection": "asc",
+      "filterText": ""
+    },
+    "headers": {
+      "x-requested-with": "XMLHttpRequest"
+    }
+  },
+  "response": {
+    "body": {
+      "success": true,
+      "totalCount": 3,
+      "pageOffset": 0,
+      "pageMaxSize": 200,
+      "data": [
+        {
+          "class": "net.hedtech.banner.student.faculty.FacultyStudentAttendanceSection",
+          "termCode": "202610",
+          "subjectCode": "CINF",
+          "courseNumber": "00701",
+          "courseReferenceNumber": "20824",
+          "sequenceNumber": "P04",
+          "sessionIndicator": "01",
+          "subjectDesc": "INGENIER&Iacute;A CIVIL INFORM&Aacute;TICA",
+          "sectionTitle": "Ingenier&iacute;a de Software",
+          "schedule": ["false", "false", "false", "false", "R", "false", "false"],
+          "time": "1400",
+          "sectionMeetingId": 292484,
+          "missed": 2,
+          "percentage": 75
+        },
+        {
+          "class": "net.hedtech.banner.student.faculty.FacultyStudentAttendanceSection",
+          "termCode": "202610",
+          "subjectCode": "CINF",
+          "courseNumber": "00701",
+          "courseReferenceNumber": "20825",
+          "sequenceNumber": "P05",
+          "sessionIndicator": "01",
+          "subjectDesc": "INGENIER&Iacute;A CIVIL INFORM&Aacute;TICA",
+          "sectionTitle": "Ingenier&iacute;a de Software",
+          "schedule": ["false", "false", "false", "W", "false", "false", "false"],
+          "time": "1700",
+          "sectionMeetingId": 294611,
+          "missed": 0,
+          "percentage": 100
+        },
+        {
+          "class": "net.hedtech.banner.student.faculty.FacultyStudentAttendanceSection",
+          "termCode": "202520",
+          "subjectCode": "CINF",
+          "courseNumber": "00601",
+          "courseReferenceNumber": "26068",
+          "sequenceNumber": "P01",
+          "sessionIndicator": "01",
+          "subjectDesc": "INGENIER&Iacute;A CIVIL INFORM&Aacute;TICA",
+          "sectionTitle": "Electricidad y Electromagnetis",
+          "schedule": ["false", "true", "false", "false", "false", "false", "false"],
+          "time": "1100",
+          "sectionMeetingId": 111111,
+          "missed": 0,
+          "percentage": 100
+        }
+      ]
+    }
+  }
+}

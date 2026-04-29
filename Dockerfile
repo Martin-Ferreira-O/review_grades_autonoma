@@ -18,4 +18,4 @@ RUN mkdir -p /app/data /app/.auth
 
 EXPOSE 8000
 
-CMD ["python", "main.py", "serve", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "main.py"]

@@ -3,7 +3,17 @@ from __future__ import annotations
 import html
 from typing import Optional
 
-from uac_grades.domain.models import AcademicHistory, AcademicLevel, AcademicTerm, Course, GradeComponent, GradeSnapshot
+from uac_grades.domain.models import (
+    AcademicHistory,
+    AcademicLevel,
+    AcademicTerm,
+    AttendanceAbsenceDetail,
+    AttendanceSection,
+    AttendanceSnapshot,
+    Course,
+    GradeComponent,
+    GradeSnapshot,
+)
 
 
 def banner_flag_to_bool(value) -> bool:
@@ -187,4 +197,79 @@ def build_snapshot(term_raw: dict, level_raw: dict, courses_raw: list) -> GradeS
 def build_academic_history(snapshots: list[GradeSnapshot]) -> AcademicHistory:
     return AcademicHistory(
         snapshots=sorted(snapshots, key=lambda snapshot: (snapshot.term.code, snapshot.level.code)),
+    )
+
+
+def _optional_int(value) -> int | None:
+    if value in (None, ""):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _first_optional_int(*values) -> int | None:
+    for value in values:
+        parsed = _optional_int(value)
+        if parsed is not None:
+            return parsed
+    return None
+
+
+def _optional_float(value) -> float | None:
+    if value in (None, ""):
+        return None
+    try:
+        return float(str(value).replace(",", "."))
+    except (TypeError, ValueError):
+        return None
+
+
+def map_absence_detail(item: dict) -> AttendanceAbsenceDetail:
+    return AttendanceAbsenceDetail(
+        meeting_date=str(item.get("meetingDate") or "").strip(),
+        hours=item.get("hours"),
+        status=item.get("status"),
+    )
+
+
+def map_attendance_section(item: dict, details: dict | None = None) -> AttendanceSection:
+    details = details or {}
+    return AttendanceSection(
+        term_code=str(item.get("termCode") or "").strip(),
+        subject_code=str(item.get("subjectCode") or "").strip(),
+        course_number=str(item.get("courseNumber") or "").strip(),
+        course_reference_number=item.get("courseReferenceNumber"),
+        section=item.get("sequenceNumber"),
+        session_indicator=item.get("sessionIndicator"),
+        section_title=html.unescape(str(item.get("sectionTitle") or "").strip()),
+        subject_description=html.unescape(str(item.get("subjectDesc") or "").strip()) or None,
+        schedule=[str(value) for value in item.get("schedule") or []],
+        time=item.get("time"),
+        section_meeting_id=str(item.get("sectionMeetingId")) if item.get("sectionMeetingId") not in (None, "") else None,
+        missed=_first_optional_int(details.get("missed"), item.get("missed")) or 0,
+        percentage=_optional_float(details.get("percentage"))
+        if details.get("percentage") not in (None, "")
+        else _optional_float(item.get("percentage")),
+        total_sessions=_optional_int(details.get("totalSessions")),
+        sessions_attended=_optional_int(details.get("sessionAttended")),
+        class_cancelled=_optional_int(details.get("classCancelled")),
+        absence_notified_count=_optional_int(details.get("absenceNotifiedCount")),
+        absences=[
+            map_absence_detail(absence)
+            for absence in details.get("absenceDetails") or []
+            if isinstance(absence, dict)
+        ],
+    )
+
+
+def build_attendance_snapshot(term_code: str, sections_raw: list[tuple[dict, dict | None]]) -> AttendanceSnapshot:
+    return AttendanceSnapshot(
+        term_code=term_code,
+        sections=[
+            map_attendance_section(section, details)
+            for section, details in sections_raw
+            if str(section.get("termCode") or "").strip() == term_code
+        ],
     )

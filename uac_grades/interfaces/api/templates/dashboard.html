@@ -95,6 +95,120 @@
         </div>
       </section>
 
+      <section class="card section-card attendance-card">
+        <div class="card-header attendance-header">
+          <div>
+            <h2>Asistencia</h2>
+            <p>
+              Margen de ausencias por ramo segun tu asistencia actual, el minimo requerido y un
+              semestre de 18 semanas.
+            </p>
+          </div>
+          <button class="secondary-action fetch-action" id="fetchAttendanceButton" type="button">
+            Actualizar asistencia
+          </button>
+        </div>
+        <div class="fetch-feedback" id="attendanceFeedback" aria-live="polite" hidden>
+          <strong id="attendanceMessage"></strong>
+        </div>
+
+        {% if attendance and attendance.available %}
+        <div class="cards-grid attendance-cards-grid">
+          <article class="card metric-card">
+            <span class="metric-label">Cursos</span>
+            <strong>{{ attendance.courses_count }}</strong>
+          </article>
+          <article class="card metric-card success">
+            <span class="metric-label">Con margen</span>
+            <strong>{{ attendance.margin_count }}</strong>
+          </article>
+          <article class="card metric-card">
+            <span class="metric-label">Ajustados</span>
+            <strong>{{ attendance.tight_count }}</strong>
+          </article>
+          <article class="card metric-card danger">
+            <span class="metric-label">No faltes mas</span>
+            <strong>{{ attendance.no_more_count }}</strong>
+          </article>
+          <article class="card metric-card danger">
+            <span class="metric-label">Bajo minimo</span>
+            <strong>{{ attendance.below_count }}</strong>
+          </article>
+          <article class="card metric-card">
+            <span class="metric-label">Clases</span>
+            <strong>{{ attendance.sections_count }}</strong>
+          </article>
+        </div>
+        <p class="attendance-updated">
+          Actualizado {{ attendance.generated_at_relative }}
+          <span title="{{ attendance.generated_at_exact }}">{{ attendance.generated_at_exact }}</span>
+        </p>
+
+        <div class="table-wrap attendance-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Ramo</th>
+                <th>Asistencia</th>
+                <th>Minimo</th>
+                <th>Puedes faltar</th>
+                <th>Ausencias</th>
+                <th>Horarios</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for course in attendance.courses %}
+              <tr>
+                <td>
+                  <strong>{{ course.title }}</strong>
+                  <div class="table-note">{{ course.code }}</div>
+                </td>
+                <td>
+                  {{ course.current_percentage_text }}
+                  <div class="table-note">{{ course.attended_sessions }}/{{ course.registered_sessions }} registradas</div>
+                </td>
+                <td>{{ course.minimum_percentage_text }}</td>
+                <td>
+                  <strong>{{ course.classes_can_miss_text }}</strong>
+                  <div class="table-note">{{ course.max_absences_text }} maximas en {{ course.effective_total_classes }}</div>
+                </td>
+                <td>{{ course.current_absences }}</td>
+                <td>
+                  {% for section in course.sections %}
+                  <div class="table-note">
+                    NRC {{ section.course_reference_number }} · {{ section.section }} · {{ section.days_text }} {{ section.time_text }}
+                  </div>
+                  {% endfor %}
+                </td>
+                <td>
+                  <span class="status-pill {{ course.status_variant }}">{{ course.status }}</span>
+                </td>
+              </tr>
+              {% if course.recent_absences %}
+              <tr class="attendance-absence-row">
+                <td colspan="7">
+                  <strong>Ultimas ausencias:</strong>
+                  {% for absence in course.recent_absences %}
+                  <span>
+                    {{ absence.meeting_date }} · NRC {{ absence.course_reference_number }} · {{ absence.hours }} · {{ absence.status }}
+                  </span>
+                  {% endfor %}
+                </td>
+              </tr>
+              {% endif %}
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="empty-inline-state">
+          <h3>Sin asistencia cargada</h3>
+          <p>Usa <strong>Actualizar asistencia</strong> para traer tus registros desde Banner.</p>
+        </div>
+        {% endif %}
+      </section>
+
       <section class="card section-card">
         <div class="card-header">
           <h2>Que necesitas en lo que falta</h2>

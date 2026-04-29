@@ -2,7 +2,7 @@ from .comparison_identity_store import ComparisonIdentityStore
 from .debug_store import DebugArtifactStore
 from .json_exporter import JsonHistoryExporter, JsonSnapshotExporter
 from .session_store import SessionStateStore
-from .sqlite_store import SqliteHistoryStore
+from .sqlite_store import SqliteAttendanceStore, SqliteHistoryStore
 
 __all__ = [
     "ComparisonIdentityStore",
@@ -10,5 +10,6 @@ __all__ = [
     "JsonHistoryExporter",
     "JsonSnapshotExporter",
     "SessionStateStore",
+    "SqliteAttendanceStore",
     "SqliteHistoryStore",
 ]

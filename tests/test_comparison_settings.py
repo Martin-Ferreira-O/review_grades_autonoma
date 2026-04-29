@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from uac_grades.infrastructure.config import Settings
+from uac_grades.interfaces.cli import runner
 from uac_grades.interfaces.cli.runner import _build_parser
 
 
@@ -63,6 +64,14 @@ class ComparisonSettingsTests(unittest.TestCase):
             parser.parse_args(["serve-comparison"])
 
         self.assertEqual(error.exception.code, 2)
+
+    def test_main_without_command_starts_server(self) -> None:
+        with patch("sys.argv", ["main.py"]), patch.object(
+            runner, "_run_server"
+        ) as run_server:
+            runner.run()
+
+        run_server.assert_called_once_with(host=None, port=None)
 
     def test_api_exports_only_local_app(self) -> None:
         import uac_grades.interfaces.api as api

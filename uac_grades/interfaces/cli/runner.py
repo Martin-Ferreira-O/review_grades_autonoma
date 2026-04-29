@@ -14,7 +14,7 @@ from uac_grades.interfaces.banner_fetch import fetch_banner_history
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="UA grades: extraccion y dashboard local"
+        description="UA grades: dashboard local. Sin subcomando inicia el servidor web."
     )
     subparsers = parser.add_subparsers(dest="command")
 
@@ -82,7 +82,11 @@ def run() -> None:
     parser = _build_parser()
     args = parser.parse_args()
 
-    if args.command in (None, "fetch"):
+    if args.command is None:
+        _run_server(host=None, port=None)
+        return
+
+    if args.command == "fetch":
         asyncio.run(_run_fetch(full_refresh=getattr(args, "full", False)))
         return
 

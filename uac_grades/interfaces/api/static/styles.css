@@ -217,6 +217,17 @@ code {
   margin-bottom: 1rem;
 }
 
+.attendance-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.attendance-header .fetch-action {
+  flex: 0 0 auto;
+}
+
 .hero-actions {
   display: flex;
   flex-wrap: wrap;
@@ -322,6 +333,62 @@ code {
 
 .section-card {
   margin-top: 1rem;
+}
+
+.attendance-card {
+  overflow: hidden;
+}
+
+.attendance-cards-grid {
+  margin-bottom: 0.75rem;
+}
+
+.attendance-updated {
+  margin: 0.25rem 0 1rem;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.attendance-updated span {
+  margin-left: 0.4rem;
+}
+
+.attendance-table-wrap {
+  margin-top: 0.35rem;
+}
+
+.attendance-absence-row td {
+  padding: 0.65rem 0 0.9rem;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.attendance-absence-row strong {
+  color: var(--text);
+  margin-right: 0.4rem;
+}
+
+.attendance-absence-row span {
+  display: inline-block;
+  margin-right: 0.75rem;
+  line-height: 1.6;
+}
+
+.empty-inline-state {
+  border: 1px solid var(--line);
+  border-radius: 0.9rem;
+  padding: 1rem;
+  background: rgba(9, 17, 31, 0.45);
+}
+
+.empty-inline-state h3 {
+  margin: 0 0 0.35rem;
+}
+
+.empty-inline-state p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
 }
 
 .spotlight-card {
@@ -516,6 +583,14 @@ canvas {
   .term-panel {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .attendance-header {
+    flex-direction: column;
+  }
+
+  .attendance-header .fetch-action {
+    width: 100%;
   }
 
   .course-detail summary {

@@ -46,6 +46,7 @@ def _migrate_legacy_path(target: Path, legacy: Path) -> Path:
 class UrlSettings:
     sso: str
     grades: str
+    attendance: str = "https://autoserviciooci.uautonoma.cl/StudentSelfService/ssb/StudentAttendanceTracking#!/"
 
 
 @dataclass(frozen=True)
@@ -161,6 +162,11 @@ class Settings:
                     "UA_URL_NOTAS",
                     "UAC_URL_NOTAS",
                     "https://autoserviciooci.uautonoma.cl/StudentSelfService/ssb/studentGrades",
+                ),
+                attendance=_env(
+                    "UA_URL_ASISTENCIA",
+                    "UAC_URL_ASISTENCIA",
+                    "https://autoserviciooci.uautonoma.cl/StudentSelfService/ssb/StudentAttendanceTracking#!/",
                 ),
             ),
             browser=BrowserSettings(

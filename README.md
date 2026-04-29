@@ -33,34 +33,29 @@ Con ese historial puedes:
 - Persistencia local en `SQLite`
 - Exportacion a `JSON`
 - Dashboard local con metricas y graficos
+- Modulo de asistencia con margen de ausencias por ramo
 - Soporte para ejecucion local o con `Docker`
 
 ## Flujo
 
-1. `fetch`: intenta reutilizar la sesion guardada en `.auth/storage_state.json`.
-2. Si ya existe historial local, actualiza solo el periodo actual y conserva intactos los semestres anteriores.
-3. Si no existe historial local, o si usas `fetch --full`, recorre todos los periodos y rehace el historial completo.
-4. Si la sesion expiro, abre `Playwright`, renueva login Microsoft + TOTP, actualiza la sesion y continua por HTTP.
-5. Guarda el resultado en `JSON` y `SQLite`.
-6. `serve`: levanta la web local leyendo desde SQLite.
+1. `python main.py`: levanta la web local leyendo desde SQLite.
+2. Desde el dashboard puedes usar `Actualizar notas` y `Actualizar asistencia` para traer datos desde Banner.
+3. Si la sesion expiro, el flujo web abre `Playwright`, renueva login Microsoft + TOTP, actualiza la sesion y continua por HTTP.
+4. Guarda el resultado en `JSON` y `SQLite`.
 
 ## Comandos
 
 ```bash
-python main.py fetch
-python main.py fetch --full
-python main.py serve
+python main.py
 ```
-
-`fetch` actualiza solo el semestre actual cuando ya existe un historial guardado.
-
-Usa `python main.py fetch --full` si quieres recargar todos los semestres manualmente.
-
-Si la sesion HTTP sigue vigente, `fetch` no deberia abrir ningun browser.
 
 El dashboard queda disponible en `http://127.0.0.1:8000`.
 
-`python main.py serve` inicia el dashboard local que lee tu historial desde `SQLite`, muestra el resumen academico, permite actualizar notas desde Banner con `Actualizar notas` y ofrece dos entradas al flujo de comparacion: `Ir a dashboard de comparacion` y `Subir mis datos / Sync`.
+`python main.py` inicia el dashboard local que lee tu historial desde `SQLite`, muestra el resumen academico, permite actualizar notas desde Banner con `Actualizar notas`, permite cargar asistencia con `Actualizar asistencia` y ofrece dos entradas al flujo de comparacion: `Ir a dashboard de comparacion` y `Subir mis datos / Sync`.
+
+Los comandos manuales `python main.py fetch`, `python main.py fetch --full` y `python main.py serve` siguen disponibles, pero el flujo normal esta en la web.
+
+`fetch` actualiza solo el semestre actual cuando ya existe un historial guardado. Usa `python main.py fetch --full` si quieres recargar todos los semestres manualmente.
 
 ## Uso local
 
@@ -68,9 +63,7 @@ El dashboard queda disponible en `http://127.0.0.1:8000`.
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-python main.py fetch
-python main.py fetch --full
-python main.py serve
+python main.py
 ```
 
 ## Uso con Docker
@@ -78,13 +71,12 @@ python main.py serve
 ```bash
 cp .env.example .env
 docker compose build
-docker compose run --rm app python main.py fetch
 docker compose up
 ```
 
 El dashboard queda disponible en `http://localhost:8000`.
 
-Para `fetch` dentro de Docker conviene usar `UA_HEADLESS=true`. Esa opcion solo afecta el browser de renovacion. Si Microsoft cambia la pantalla de 2FA y necesitas intervenir manualmente, ejecuta `python main.py fetch` fuera del contenedor.
+Para actualizar desde Docker conviene usar `UA_HEADLESS=true`. Esa opcion solo afecta el browser de renovacion. Si Microsoft cambia la pantalla de 2FA y necesitas intervenir manualmente, ejecuta el dashboard fuera del contenedor con `python main.py`.
 
 ## Variables principales
 
@@ -108,7 +100,7 @@ Copia `.env.example` a `.env` y completa tus credenciales.
 Para usar comparacion solo necesitas levantar la app local:
 
 ```bash
-python main.py serve
+python main.py
 ```
 
 Configuracion relevante en `.env`:
@@ -171,4 +163,5 @@ Eso genera artifacts en `data/banner_contract/`, incluyendo `summary.json` y una
 - El proyecto esta pensado para uso personal y local.
 - La web no scrapea en cada refresh; consume el ultimo historial guardado en SQLite.
 - Si quieres actualizar tus datos desde la web, usa `Actualizar notas`; el boton queda bloqueado por 1 minuto despues de una carga exitosa.
+- La asistencia se actualiza con un boton separado y calcula el margen usando 18 semanas por semestre.
 - Los screenshots del browser solo se generan en problemas de login o renovacion, no en el fetch HTTP normal.
