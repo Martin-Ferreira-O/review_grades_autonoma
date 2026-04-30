@@ -20,3 +20,4 @@ docs
 AGENTS.md
 .ruff_cache
 .pytest_cache
+.codex
